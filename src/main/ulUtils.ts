@@ -1,4 +1,4 @@
-const { default: Client, Config, FileUpgradeRequest } = require('@toolsetlink/upgradelink-api-typescript');
+const { default: Client, Config, FileUpgradeRequest,AppReportRequest } = require('@toolsetlink/upgradelink-api-typescript');
 //@toolsetlink/upgradelink-api-typescript
 // 测试获取文件升级信息
 export async function getFileUpgrade(ak:string,sk:string,fk:string, versionCode: number = 1) {

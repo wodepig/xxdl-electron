@@ -12,6 +12,7 @@ import { getFileUpgrade } from './ulUtils'
 import {fileCheckVersion} from './up-utils'
 import icon from '../../resources/icon.png?asset'
 import StorePkg from 'electron-store';
+//@ts-ignore
 const Store = StorePkg.default || StorePkg;
 const store = new Store();
 // 使用 require 方式导入解压库
@@ -139,6 +140,7 @@ const getAppDir = (): string => {
 
 // 下载文件
 const downloadFile = async (url: string, destPath: string): Promise<void> => {
+  console.log(`开始下载新版本...`)
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith('https:') ? https : http
     
@@ -416,7 +418,9 @@ const initialize = async (): Promise<void> => {
         } else {
           console.log(`当前已是最新版本: ${distVersion}`)
         }
-      } else {
+      } else if (res && res.code === 0){
+        console.log('没有新版本')
+      }else{
         console.log('检查更新失败，使用当前版本')
       }
     }
