@@ -44,6 +44,9 @@ const handleLogUpdate = ( log: string): void => {
   }, 0)
 }
 
+const handleLogPercent = (): void => {
+  logs.value.push('日志准备就绪')
+}
 
 
 

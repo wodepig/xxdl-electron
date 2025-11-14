@@ -102,7 +102,7 @@ app.whenReady().then(async () => {
  
     // 执行初始化操作
   try {
-    startInitialize()
+    // startInitialize()
 
   } catch (error) {
     const errorMessage = `应用初始化失败: ${(error as Error).message}`
