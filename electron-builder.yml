@@ -1,5 +1,5 @@
 appId: com.electron.app
-productName: xxdl-electron
+productName: xxdl-electron-test
 directories:
   buildResources: build
 files:
@@ -12,7 +12,9 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: xxdl-electron
+  executableName: xxdl-electron-test
+  compression: normal
+  target: zip
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

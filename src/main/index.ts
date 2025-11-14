@@ -5,7 +5,7 @@ import { join } from 'path'
 
 
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { loadEnvFile, startInitialize, cleanupServerProcess } from './utils'
+import {  startInitialize, cleanupServerProcess } from './utils'
 import icon from '../../resources/icon.png?asset'
 
 
@@ -42,21 +42,16 @@ mainWindow.webContents.openDevTools()
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
-  if(process.env['ELECTRON_RENDERER_URL']){
-    console.log(1);
-    
-    mainWindow?.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  }
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
-  // if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-  //   console.log('开发环境，加载远程URL:', process.env['ELECTRON_RENDERER_URL']);
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    // console.log('开发环境，加载远程URL:', process.env['ELECTRON_RENDERER_URL']);
     
-  //   mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  // } else {
-  //     console.log('生产环境，加载本地HTML文件:', join(__dirname, '../renderer/index.html'));
-  //   mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
-  // }
+    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+  } else {
+      // console.log('生产环境，加载本地HTML文件:', join(__dirname, '../renderer/index.html'));
+    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+  }
 }
 
 
@@ -160,7 +155,7 @@ app.whenReady().then(async () => {
   console.log(3);
       // 在窗口准备好的时候发送测试消息
     // await loadEnvFile()
-
+ 
     // 执行初始化操作
     await initialize()
   // mainWindow?.loadURL('https://www.baidu.com')
