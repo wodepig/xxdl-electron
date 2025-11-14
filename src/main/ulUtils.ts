@@ -47,6 +47,9 @@ export async function getFileUpgrade(ak:string,sk:string,fk:string, versionCode:
 // 测试事件上报信息
 async function testPostAppReport() {
     try {
+        if(true){
+            return
+        }
         // 初始化客户端
         const config = new Config({
             accessKey:  'mui2W50H1j-OC4xD6PgQag',
@@ -111,4 +114,4 @@ async function testPostAppReport() {
 
 // 执行测试
  
-// testPostAppReport();
+testPostAppReport();

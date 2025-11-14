@@ -7,3 +7,4 @@ out
 dist.zip
 dist
 *.env
+*.env.*

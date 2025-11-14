@@ -1,5 +1,5 @@
 import { spawn, ChildProcess, execSync } from 'child_process'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import {  is } from '@electron-toolkit/utils'
 import { join, dirname } from 'path'
 import { createServer } from 'net'
 // 使用 require 方式导入解压库
@@ -9,7 +9,7 @@ import { getFileUpgrade } from './ulUtils'
 import https from 'https'
 import http from 'http'
 import { readFileSync, existsSync, mkdirSync, createWriteStream } from 'fs'
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, dialog } from 'electron'
 import StorePkg from 'electron-store';
 //@ts-ignore
 const Store = StorePkg.default || StorePkg;
@@ -81,7 +81,6 @@ export const loadEnvFile = ()=>{
 
 export const startInitialize = async() => {
     const appDir = getAppDir()
-    const distZipPath = join(appDir, 'dist.zip')
     const distDir = join(appDir, 'dist')
     const serverPath = join(distDir, 'server', 'index.mjs')
     await handleDistZip()
@@ -94,7 +93,7 @@ export const startInitialize = async() => {
    // 更新窗口加载地址
 const mainWindow = getMainWindow()
 if (mainWindow) {
-    const finalUrl = actualPort ? buildUrlWithPort(process.env.UL_CONF_URL!, actualPort) : process.env.UL_CONF_URL!
+    const finalUrl = actualPort ? buildUrlWithPort(import.meta.env.VITE_UL_CONF_URL!, actualPort) : import.meta.env.VITE_UL_CONF_URL!
 mainWindow.loadURL(finalUrl)
 }
 
@@ -107,7 +106,7 @@ const handleNodeServer = async ()=>{
     const serverPath = join(distDir, 'server', 'index.mjs')
  // 3. 检测端口占用并启动 Node 服务
     // 从 URL 中提取端口
-    const originalUrl = process.env.UL_CONF_URL!
+    const originalUrl = import.meta.env.VITE_UL_CONF_URL!
     let targetPort = extractPortFromUrl(originalUrl)
     let targetUrl = originalUrl
     
@@ -235,15 +234,15 @@ const handleDistZip = async () => {
     // 如果不存在 dist.zip，首次下载
     if (!existsSync(distZipPath)) {
         addLog2Vue('程序不存在，首次下载...')
-        distUrl = `https://api.upgrade.toolsetlink.com/v1/file/download?fileKey=${process.env.UL_CONF_FILEKEY!}`
+        distUrl = `https://api.upgrade.toolsetlink.com/v1/file/download?fileKey=${import.meta.env.VITE_UL_CONF_FILEKEY!}`
         await downloadFile(distUrl, distZipPath)
     } else {
         addLog2Vue('检查程序更新...')
         // 使用当前版本号检查更新
         const res = await getFileUpgrade(
-            process.env.UL_CONF_AK!,
-            process.env.UL_CONF_SK!,
-            process.env.UL_CONF_FILEKEY!,
+            import.meta.env.VITE_UL_CONF_AK!,
+            import.meta.env.VITE_UL_CONF_SK!,
+            import.meta.env.VITE_UL_CONF_FILEKEY!,
             distVersion
         )
         console.log(JSON.stringify(res))

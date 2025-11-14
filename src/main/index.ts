@@ -1,24 +1,13 @@
 
 
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join, dirname } from 'path'
-import { readFileSync, existsSync, mkdirSync } from 'fs'
-import { createWriteStream } from 'fs'
-import https from 'https'
-import http from 'http'
+import { join } from 'path'
 
-import { spawn, ChildProcess, execSync } from 'child_process'
-import { createServer } from 'net'
+
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { getFileUpgrade } from './ulUtils'
 import { loadEnvFile, startInitialize, cleanupServerProcess } from './utils'
 import icon from '../../resources/icon.png?asset'
-import StorePkg from 'electron-store';
-//@ts-ignore
-const Store = StorePkg.default || StorePkg;
-const store = new Store();
-// 使用 require 方式导入解压库
-const AdmZip = require('adm-zip')
+
 
 // 使用 import 方式导入 electron-store（主进程中使用）
 
@@ -48,7 +37,7 @@ function createWindow(): void {
   if (is.dev) {
     mainWindow.webContents.openDevTools()
   }
-
+mainWindow.webContents.openDevTools()
   mainWindow?.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
@@ -75,8 +64,7 @@ function createWindow(): void {
  * 应用初始化方法
  */
 const initialize = async (): Promise<void> => {
-      // 在应用启动时加载环境变量
-    loadEnvFile()
+  
   try {
     startInitialize()
   } catch (error) {
@@ -171,7 +159,8 @@ app.whenReady().then(async () => {
   createWindow()
   console.log(3);
       // 在窗口准备好的时候发送测试消息
-    await loadEnvFile()
+    // await loadEnvFile()
+
     // 执行初始化操作
     await initialize()
   // mainWindow?.loadURL('https://www.baidu.com')
