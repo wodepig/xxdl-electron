@@ -14,6 +14,7 @@ import StorePkg from 'electron-store';
 //@ts-ignore
 const Store = StorePkg.default || StorePkg;
 const store = new Store();
+import { logBuffer, isRendererReady } from './index'
 
 // 启动 Node 服务
 let serverProcess: ChildProcess | null = null
@@ -97,6 +98,10 @@ export const startInitialize = async () => {
         // mainWindow.loadURL(finalUrl)
     }
 
+}
+
+const sleep = async (ms: number): Promise<void> => {
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 // 启动 Node 服务
@@ -279,8 +284,15 @@ const handleDistZip = async () => {
 // 向 Vue 发送日志
 export const addLog2Vue = (log: string): void => {
     const mainWindow = getMainWindow()
-    console.log('addLog2Vue',log);
-    console.log('addLog2Vue',BrowserWindow.getAllWindows().length);
+    console.log('addLog2Vue', log);
+    console.log('addLog2Vue', BrowserWindow.getAllWindows().length);
+    
+    // 如果渲染进程还没准备好，将日志添加到缓冲区
+    if (!isRendererReady) {
+        logBuffer.push(log)
+        return
+    }
+    
     if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('log-message', log)
     }
