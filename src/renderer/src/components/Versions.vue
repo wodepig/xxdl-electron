@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { reactive } from 'vue'
 
-const versions = reactive({ ...window.electron.process.versions })
+// 安全地访问 window.electron.process.versions，提供默认值以防属性不存在
+const versions = reactive({
+  electron: window.electron?.process?.versions?.electron || 'N/A',
+  chrome: window.electron?.process?.versions?.chrome || 'N/A',
+  node: window.electron?.process?.versions?.node || 'N/A'
+})
 </script>
 
 <template>
