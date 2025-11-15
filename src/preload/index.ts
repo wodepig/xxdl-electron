@@ -1,9 +1,29 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-
 // 添加调试日志
 console.log('Preload script is loading...')
 console.log('process.contextIsolated:', process.contextIsolated)
+import StorePkg from 'electron-store';
+//@ts-ignore
+const Store = StorePkg.default || StorePkg;
+const store = new Store();
+// 获取系统信息和版本信息
+const getSystemInfo = () => {
+  return {
+    platform: process.platform,
+    arch: process.arch,
+    language: navigator.language
+  }
+}
+
+const getVersions = () => {
+  return {
+    app: store.get('distVersion', '1'), // 可以从package.json获取实际版本
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    node: process.versions.node
+  }
+}
 
 // Custom APIs for renderer
 const api = {
@@ -16,7 +36,11 @@ const api = {
     console.log('removeUpdateLogListener called')
     // 移除所有日志监听器
     ipcRenderer.removeAllListeners('log-message')
-  }
+  },
+  
+  // 添加获取系统信息和版本信息的方法
+  getSystemInfo: getSystemInfo,
+  getVersions: getVersions
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

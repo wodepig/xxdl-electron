@@ -1,45 +1,256 @@
 <script setup lang="ts">
-import Versions from './components/Versions.vue'
-import LogViewer from './components/LogViewer.vue'
+import { ref, onMounted, onUnmounted, reactive, nextTick } from 'vue'
 
-// 调试信息
-console.log('window.electron:', window.electron)
-console.log('window.api:', window.api)
+type SystemInfo = {
+  platform: string
+  arch: string
+  language: string
+}
 
-const ipcHandle = (): void => {
-  if (window.electron && window.electron.ipcRenderer) {
-    window.electron.ipcRenderer.send('ping')
-  } else {
-    console.error('Electron API not available')
+type VersionInfo = {
+  app: string
+  electron: string
+  chrome: string
+  node: string
+}
+const appInfo = ref({
+  name: import.meta.env.VITE_APP_NAME || '应用名称',
+  icon: import.meta.env.VITE_APP_ICON || '应用图标',
+  desc: import.meta.env.VITE_APP_DESC || '应用描述',
+  home: import.meta.env.VITE_APP_HOME || '应用首页',
+})
+const systemInfo = reactive<SystemInfo>({
+  platform: '未知',
+  arch: '未知',
+  language: '未知'
+})
+
+const versions = reactive<VersionInfo>({
+  app: '1.0.0',
+  electron: 'N/A',
+  chrome: 'N/A',
+  node: 'N/A'
+})
+
+const logs = ref<string[]>([])
+const logContainer = ref<HTMLDivElement | null>(null)
+const downloadProgress = ref(0)
+const isDownloading = ref(false)
+const showDownloadCard = ref(false)
+
+const autoScroll = (): void => {
+  nextTick(() => {
+    if (logContainer.value) {
+      logContainer.value.scrollTop = logContainer.value.scrollHeight
+    }
+  })
+}
+
+const appendLog = (message: string): void => {
+  logs.value.push(message)
+  autoScroll()
+}
+
+const getLogClass = (log: string): string => {
+  if (log.includes('失败') || log.includes('错误')) {
+    return 'error'
+  }
+  if (log.includes('完成') || log.includes('成功')) {
+    return 'success'
+  }
+  if (log.includes('开始') || log.includes('检查') || log.includes('下载')) {
+    return 'info'
+  }
+  return 'default'
+}
+
+const hydrateSystemInfo = (): void => {
+  try {
+
+    
+    // 延迟执行确保 preload 脚本已加载
+    setTimeout(() => {
+      if (window.api?.getSystemInfo) {
+        const info = window.api.getSystemInfo()
+        systemInfo.platform = info.platform || '未知'
+        systemInfo.arch = info.arch || '未知'
+        systemInfo.language = info.language || '未知'
+        console.log('系统信息已加载:', info)
+      } else {
+        console.warn('window.api.getSystemInfo 不可用')
+      }
+
+      if (window.api?.getVersions) {
+        const vers = window.api.getVersions()
+        versions.app =     vers.app  || '1'
+        versions.electron = vers.electron || 'N/A'
+        versions.chrome = vers.chrome || 'N/A'
+        versions.node = vers.node || 'N/A'
+        console.log('版本信息已加载:', versions)
+      } else {
+        console.warn('window.api.getVersions 不可用')
+      }
+    }, 200)
+  } catch (error) {
+    console.error('获取系统信息失败:', error)
+    appendLog('错误: 无法获取系统或版本信息')
   }
 }
+
+const handleLogUpdate = (log: string): void => {
+  appendLog(log)
+}
+
+let logListenerAttached = false
+
+const attachLogListener = (): void => {
+  if (logListenerAttached) return
+
+  if (!window.api?.onUpdateLog) {
+    appendLog('错误: 无法连接到主进程日志接口')
+    return
+  }
+
+  window.api.onUpdateLog(handleLogUpdate)
+  logListenerAttached = true
+
+  if (window.electron?.ipcRenderer?.send) {
+    window.electron.ipcRenderer.send('renderer-ready')
+    appendLog('日志监听器已连接')
+  } else {
+    appendLog('警告: 无法通知主进程渲染进程状态')
+  }
+}
+
+const detachLogListener = (): void => {
+  if (!logListenerAttached) return
+  window.api?.removeUpdateLogListener()
+  logListenerAttached = false
+}
+
+const triggerDownload = (): void => {
+  showDownloadCard.value = true
+}
+
+const simulateDownload = (): void => {
+  showDownloadCard.value = true
+  isDownloading.value = true
+  downloadProgress.value = 0
+
+  const interval = setInterval(() => {
+    downloadProgress.value += Math.min(100 - downloadProgress.value, Math.floor(Math.random() * 12) + 5)
+
+    if (downloadProgress.value >= 100) {
+      downloadProgress.value = 100
+      isDownloading.value = false
+      clearInterval(interval)
+      appendLog('下载完成')
+    }
+  }, 300)
+}
+
+onMounted(() => {
+  appendLog('应用启动中...')
+  hydrateSystemInfo()
+  appendLog('系统信息加载完成')
+  attachLogListener()
+  // 根据需要显示下载卡片
+  // triggerDownload()
+})
+
+onUnmounted(() => {
+  detachLogListener()
+})
 </script>
 
 <template>
   <div class="app-container">
     <header class="app-header">
-      <img alt="logo" class="logo" src="./assets/electron.svg" />
-      <h1>Electron 应用</h1>
-    </header>
-    
-    <main class="app-main">
-      <div class="welcome-section">
-        <div class="creator">Powered by electron-vite</div>
-        <div class="text">
-          使用 <span class="vue">Vue</span> 和 <span class="ts">TypeScript</span> 构建 Electron 应用
+      <div class="brand">
+        <!-- <div style="object-position: bottom;"> -->
+          <img style="background-color: white; object-fit: contain;padding: 4px"   alt="logo" class="logo" :src="appInfo.icon" />
+        <!-- </div> -->
+        <div>
+          <h1>{{ appInfo.name }}</h1>
+          <p>{{ appInfo.desc }}</p>
         </div>
-        <p class="tip">提示：按 <code>F12</code> 打开开发者工具</p>
       </div>
-      
-      <div class="actions-section">
-        <button class="action-button" @click="ipcHandle">发送 IPC 消息</button>
-        <a class="action-link" href="https://electron-vite.org/" target="_blank" rel="noreferrer">查看文档</a>
-      </div>
-      
-      <div class="components-section">
-        <Versions />
-        <LogViewer />
-      </div>
+    </header>
+
+    <main class="app-main">
+      <section class="info-grid">
+        <div class="card system-info-card">
+          <h2>系统信息</h2>
+          <div class="info-item">
+            <strong>平台:</strong>
+            <span>{{ systemInfo.platform }}</span>
+          </div>
+          <div class="info-item">
+            <strong>架构:</strong>
+            <span>{{ systemInfo.arch }}</span>
+          </div>
+          <div class="info-item">
+            <strong>语言:</strong>
+            <span>{{ systemInfo.language }}</span>
+          </div>
+        </div>
+
+        <div class="card version-info-card">
+          <h2>版本信息</h2>
+          <div class="info-item">
+            <strong>应用版本:</strong>
+            <span>{{ versions.app }}</span>
+          </div>
+          <div class="info-item">
+            <strong>Electron:</strong>
+            <span>{{ versions.electron }}</span>
+          </div>
+          <div class="info-item">
+            <strong>Node:</strong>
+            <span>{{ versions.node }}</span>
+          </div>
+          <div class="info-item">
+            <strong>Chrome:</strong>
+            <span>{{ versions.chrome }}</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card log-card">
+        <div class="section-header">
+          <h2>应用初始化日志</h2>
+          <div v-if="showDownloadCard" class="progress-inline">
+            <span class="progress-text">{{ downloadProgress }}%</span>
+            <div class="progress-bar-inline">
+              <div
+                class="progress-fill"
+                :style="{ width: downloadProgress + '%' }"
+                :class="{ animated: isDownloading }"
+              ></div>
+            </div>
+            <button
+              class="download-button small"
+              @click="simulateDownload"
+              :disabled="isDownloading"
+            >
+              {{ isDownloading ? '下载中...' : '开始下载' }}
+            </button>
+          </div>
+          <button v-else class="download-button secondary" @click="triggerDownload">
+            显示下载进度
+          </button>
+        </div>
+        <div class="log-container" ref="logContainer">
+          <div
+            v-for="(log, index) in logs"
+            :key="index"
+            class="log-entry"
+            :class="getLogClass(log)"
+          >
+            {{ log }}
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 </template>
@@ -47,148 +258,274 @@ const ipcHandle = (): void => {
 <style scoped>
 .app-container {
   min-height: 100vh;
+  width: 100vw;
+  margin: 0;
+  padding: 0;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  display: flex;
+  flex-direction: column;
 }
 
 .app-header {
-  text-align: center;
-  margin-bottom: 30px;
   color: white;
+  padding: 24px 32px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .app-header .logo {
-  width: 100px;
-  height: 100px;
-  margin-bottom: 15px;
+  width: 64px;
+  height: 64px;
 }
 
 .app-header h1 {
-  font-size: 2.5rem;
+  font-size: 1.8rem;
   margin: 0;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.app-header p {
+  margin: 4px 0 0;
+  opacity: 0.8;
 }
 
 .app-main {
-  max-width: 1200px;
-  margin: 0 auto;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 15px;
-  padding: 30px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-}
-
-.welcome-section {
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-.welcome-section .creator {
-  font-size: 1.2rem;
-  color: #666;
-  margin-bottom: 10px;
-}
-
-.welcome-section .text {
-  font-size: 1.1rem;
-  color: #555;
-  margin-bottom: 15px;
-}
-
-.welcome-section .vue {
-  color: #42b883;
-  font-weight: bold;
-}
-
-.welcome-section .ts {
-  color: #3178c6;
-  font-weight: bold;
-}
-
-.welcome-section .tip {
-  background: #e3f2fd;
-  padding: 10px 15px;
-  border-radius: 8px;
-  color: #1976d2;
-  display: inline-block;
-  margin: 15px 0;
-}
-
-.actions-section {
+  flex: 1;
+  width: 100%;
+  padding: 24px 32px 32px;
+  box-sizing: border-box;
   display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin-bottom: 30px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.action-button {
+.card {
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+
+.card h2 {
+  color: #333;
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 10px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.info-item:last-child {
+  border-bottom: none;
+}
+
+.info-item strong {
+  color: #555;
+  margin-right: 10px;
+}
+
+.info-item span {
+  color: #333;
+  font-weight: 500;
+}
+
+.log-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 320px;
+}
+
+.log-container {
+  flex: 1;
+  overflow-y: auto;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  padding: 14px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  border-radius: 10px;
+  margin-top: 16px;
+}
+
+.log-entry {
+  padding: 4px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.log-entry:last-child {
+  border-bottom: none;
+}
+
+.log-entry.error {
+  color: #d32f2f;
+  font-weight: 500;
+}
+
+.log-entry.success {
+  color: #388e3c;
+}
+
+.log-entry.info {
+  color: #1976d2;
+}
+
+.log-entry.default {
+  color: #666;
+}
+
+.progress-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 300px;
+}
+
+.progress-bar-inline {
+  flex: 1;
+  height: 8px;
+  background-color: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+  min-width: 150px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 14px;
+  background-color: #e9ecef;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  transition: width 0.3s ease;
+}
+
+.progress-fill.animated {
+  animation: pulse 1.5s infinite;
+}
+
+.progress-text {
+  font-weight: bold;
+  font-size: 0.9rem;
+  color: #667eea;
+  min-width: 45px;
+  text-align: right;
+}
+
+.download-button {
   background: #667eea;
   color: white;
   border: none;
-  padding: 12px 24px;
-  border-radius: 25px;
+  padding: 8px 22px;
+  border-radius: 22px;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.95rem;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.action-button:hover {
+.download-button.small {
+  padding: 6px 16px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.download-button.secondary {
+  background: rgba(102, 126, 234, 0.15);
+  color: #667eea;
+}
+
+.download-button:hover:not(:disabled) {
   background: #5a6fd8;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
 }
 
-.action-link {
-  display: inline-block;
-  background: #f5f5f5;
-  color: #333;
-  padding: 12px 24px;
-  border-radius: 25px;
-  text-decoration: none;
-  font-size: 1rem;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+.download-button.secondary:hover:not(:disabled) {
+  background: rgba(102, 126, 234, 0.25);
+  color: #4f63d5;
 }
 
-.action-link:hover {
-  background: #e0e0e0;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+.download-button:disabled {
+  background: #bbb;
+  cursor: not-allowed;
+  transform: none;
 }
 
-.components-section > div {
-  margin-bottom: 30px;
-}
-
-.components-section > div:last-child {
-  margin-bottom: 0;
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 @media (max-width: 768px) {
-  .app-container {
-    padding: 10px;
+  .app-header {
+    padding: 20px;
   }
-  
+
+  .brand {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .app-main {
     padding: 20px;
   }
-  
-  .app-header h1 {
-    font-size: 2rem;
+
+  .card {
+    padding: 18px;
   }
-  
-  .actions-section {
+
+  .progress-inline {
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: auto;
+    width: 100%;
   }
-  
-  .action-button,
-  .action-link {
-    width: 80%;
-    text-align: center;
+
+  .progress-bar-inline {
+    width: 100%;
   }
 }
 </style>
