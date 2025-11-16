@@ -40,7 +40,16 @@ const api = {
   
   // 添加获取系统信息和版本信息的方法
   getSystemInfo: getSystemInfo,
-  getVersions: getVersions
+  getVersions: getVersions,
+  
+  // 添加导航监听
+  onNavigate: (callback: (path: string) => void) => {
+    ipcRenderer.on('navigate-to', (_event, path) => callback(path))
+  },
+  
+  removeNavigateListener: () => {
+    ipcRenderer.removeAllListeners('navigate-to')
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

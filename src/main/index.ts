@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import {  startInitialize, cleanupServerProcess, addLog2Vue } from './utils'
@@ -15,6 +15,111 @@ export let isRendererReady = false
 
 
 let mainWindow: BrowserWindow | null = null
+let aboutWindow: BrowserWindow | null = null
+
+// 创建关于窗口
+function createAboutWindow(): void {
+  // 如果窗口已存在且未销毁，则聚焦到该窗口
+  if (aboutWindow && !aboutWindow.isDestroyed()) {
+    aboutWindow.focus()
+    return
+  }
+
+  // 创建新窗口
+  aboutWindow = new BrowserWindow({
+    width: 1000,
+    height: 800,
+    show: false,
+    autoHideMenuBar: true,
+    resizable: true,
+    minimizable: true,
+    maximizable: true,
+    ...(process.platform === 'linux' ? { icon } : {}),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false,
+      devTools: true,
+      contextIsolation: true
+    },
+    parent: mainWindow || undefined, // 设置父窗口
+    modal: false // 非模态窗口
+  })
+
+  // 窗口准备好后显示
+  aboutWindow.once('ready-to-show', () => {
+    aboutWindow?.show()
+  })
+
+  // 窗口关闭时清理引用
+  aboutWindow.on('closed', () => {
+    aboutWindow = null
+  })
+
+  // 加载URL，使用hash路由
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    aboutWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}#/about`)
+  } else {
+    // 生产环境：先加载文件，然后在页面加载完成后导航到 about 页面
+    aboutWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    aboutWindow.webContents.once('did-finish-load', () => {
+      aboutWindow?.webContents.executeJavaScript(`
+        if (window.location.hash !== '#/about') {
+          window.location.hash = '#/about'
+        }
+      `)
+    })
+  }
+
+  // 开发模式下打开开发者工具
+  if (is.dev) {
+    aboutWindow.webContents.openDevTools()
+  }
+}
+
+// 创建菜单
+function createMenu(): void {
+  const template: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: '文件',
+      submenu: [
+        {
+          label: '新建',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => {
+            // 可以在这里添加新建文件的逻辑
+            console.log('新建文件')
+          }
+        },
+        {
+          label: '打开',
+          accelerator: 'CmdOrCtrl+O',
+          click: () => {
+            // 可以在这里添加打开文件的逻辑
+            console.log('打开文件')
+          }
+        },
+        { type: 'separator' },
+        {
+          label: '退出',
+          accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
+          click: () => {
+            app.quit()
+          }
+        }
+      ]
+    },
+    {
+      label: '关于',
+      click: () => {
+        // 创建新窗口显示关于页面
+        createAboutWindow()
+      }
+    }
+  ]
+
+  const menu = Menu.buildFromTemplate(template)
+  Menu.setApplicationMenu(menu)
+}
 
 // 创建并显示窗口
 function createWindow(): void {
@@ -96,6 +201,8 @@ process.on('SIGTERM', () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
+  // 创建菜单
+  createMenu()
 
   // 创建窗口
   createWindow()
@@ -140,6 +247,13 @@ app.whenReady().then(async () => {
       addLog2Vue(log)
     })
     logBuffer = [] // 清空缓冲区
+  })
+
+  // 监听关闭关于窗口的请求
+  ipcMain.on('close-about-window', () => {
+    if (aboutWindow && !aboutWindow.isDestroyed()) {
+      aboutWindow.close()
+    }
   })
 
 

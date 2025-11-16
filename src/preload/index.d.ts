@@ -18,6 +18,8 @@ type RendererAPI = {
   removeUpdateLogListener: () => void
   getSystemInfo: () => SystemInfo
   getVersions: () => VersionInfo
+  onNavigate: (callback: (path: string) => void) => void
+  removeNavigateListener: () => void
 }
 
 declare global {

@@ -26,7 +26,8 @@
     "@toolsetlink/upgradelink-api-typescript": "^2.1.0",
     "adm-zip": "^0.5.16",
     "electron-store": "^11.0.2",
-    "electron-updater": "^6.3.9"
+    "electron-updater": "^6.3.9",
+    "vue-router": "^4.6.3"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "3.0.0",
