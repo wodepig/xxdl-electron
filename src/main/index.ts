@@ -1,8 +1,14 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
 import { join } from 'path'
+
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import {  startInitialize, cleanupServerProcess, addLog2Vue } from './utils'
+import {  startInitialize, cleanupServerProcess,openBrowserWithType, addLog2Vue } from './utils'
 import icon from '../../resources/icon.png?asset'
+import StorePkg from 'electron-store'
+//@ts-ignore
+const Store = StorePkg.default || StorePkg
+const settingsStore = new Store({ name: 'settings' })
+const store = new Store();
 
 // 日志缓冲队列
 export let logBuffer: string[] = []
@@ -16,6 +22,7 @@ export let isRendererReady = false
 
 let mainWindow: BrowserWindow | null = null
 let aboutWindow: BrowserWindow | null = null
+let settingsWindow: BrowserWindow | null = null
 
 // 创建关于窗口
 function createAboutWindow(): void {
@@ -76,6 +83,81 @@ function createAboutWindow(): void {
   }
 }
 
+// 创建设置窗口
+function createSettingsWindow(): void {
+  // 如果窗口已存在且未销毁，则聚焦到该窗口
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.focus()
+    return
+  }
+
+  // 创建新窗口
+  settingsWindow = new BrowserWindow({
+    width: 1000,
+    height: 800,
+    show: false,
+    autoHideMenuBar: true,
+    resizable: true,
+    minimizable: true,
+    maximizable: true,
+    ...(process.platform === 'linux' ? { icon } : {}),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false,
+      devTools: true,
+      contextIsolation: true
+    },
+    parent: mainWindow || undefined,
+    modal: false
+  })
+
+  // 窗口准备好后显示
+  settingsWindow.once('ready-to-show', () => {
+    settingsWindow?.show()
+  })
+
+  // 窗口关闭时清理引用
+  settingsWindow.on('closed', () => {
+    settingsWindow = null
+  })
+
+  // 加载URL，使用hash路由
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    settingsWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}#/settings`)
+  } else {
+    settingsWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    settingsWindow.webContents.once('did-finish-load', () => {
+      settingsWindow?.webContents.executeJavaScript(`
+        if (window.location.hash !== '#/settings') {
+          window.location.hash = '#/settings'
+        }
+      `)
+    })
+  }
+
+  // 开发模式下打开开发者工具
+  if (is.dev) {
+    settingsWindow.webContents.openDevTools()
+  }
+}
+
+
+// 在浏览器中打开
+function openInBrowser(): void {
+  const nodeStart = store.get('nodeStart', 'false') as string
+  if (nodeStart === 'false') {
+    showMessageBox('程序未启动', 'error')
+    return
+  }
+  const finalUrl = store.get('finalUrl', '') as string
+  if (finalUrl === '') {
+    showMessageBox('地址配置错误', 'error')
+    return
+  }
+  const browserType = settingsStore.get('browserType', 'default') as string
+  openBrowserWithType(finalUrl, browserType)
+}
+
 // 创建菜单
 function createMenu(): void {
   const template: Electron.MenuItemConstructorOptions[] = [
@@ -107,6 +189,19 @@ function createMenu(): void {
           }
         }
       ]
+    },
+    {
+      label: '浏览器中打开',
+      click: () => {
+        openInBrowser()
+      }
+    },
+    {
+      label: '设置',
+      click: () => {
+        // 创建新窗口显示设置页面
+        createSettingsWindow()
+      }
     },
     {
       label: '关于',
@@ -194,7 +289,28 @@ process.on('SIGTERM', () => {
 })
 
 
+// 消息框工具函数
+async function showMessageBox(message: string, type: 'info' | 'error' | 'warning' | 'success' = 'info') {
+  const dialogType: 'info' | 'error' | 'warning' | 'none' = type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'info'
+  const options: Electron.MessageBoxOptions = {
+    type: dialogType,
+    title: type === 'success' ? '成功' : type === 'error' ? '错误' : type === 'warning' ? '警告' : '提示',
+    message: message,
+    buttons: ['确定']
+  }
 
+  const targetWindow = settingsWindow && !settingsWindow.isDestroyed() 
+    ? settingsWindow 
+    : aboutWindow && !aboutWindow.isDestroyed() 
+      ? aboutWindow 
+      : mainWindow
+
+  if (targetWindow) {
+    await dialog.showMessageBox(targetWindow, options)
+  } else {
+    await dialog.showMessageBox(options)
+  }
+}
 
 
 // This method will be called when Electron has finished
@@ -254,6 +370,49 @@ app.whenReady().then(async () => {
     if (aboutWindow && !aboutWindow.isDestroyed()) {
       aboutWindow.close()
     }
+  })
+
+  // 监听关闭设置窗口的请求
+  ipcMain.on('close-settings-window', () => {
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.close()
+    }
+  })
+
+  // 设置相关的 IPC 处理
+  // 获取设置
+  ipcMain.handle('get-settings', () => {
+    return {
+      updateFrequency: settingsStore.get('updateFrequency', 'onStart'), // 默认：每次启动时
+      startupActions: settingsStore.get('startupActions', []), // 默认：空数组
+      browserType: settingsStore.get('browserType', 'default') // 默认：默认浏览器
+    }
+  })
+
+  // 保存设置
+  ipcMain.handle('save-settings', (_event, settings: { updateFrequency: string; startupActions: string[]; browserType?: string }) => {
+    try {
+      // 确保数据是可序列化的
+      const updateFrequency = String(settings.updateFrequency || 'onStart')
+      const startupActions = Array.isArray(settings.startupActions) 
+        ? settings.startupActions.map(String) 
+        : []
+      const browserType = String(settings.browserType || 'default')
+      
+      settingsStore.set('updateFrequency', updateFrequency)
+      settingsStore.set('startupActions', startupActions)
+      settingsStore.set('browserType', browserType)
+      return { success: true }
+    } catch (error) {
+      console.error('保存设置失败:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  
+
+  ipcMain.handle('show-message', async (_event, message: string, type: 'info' | 'error' | 'warning' | 'success' = 'info') => {
+    await showMessageBox(message, type)
   })
 
 

@@ -49,6 +49,20 @@ const api = {
   
   removeNavigateListener: () => {
     ipcRenderer.removeAllListeners('navigate-to')
+  },
+  
+  // 设置相关 API
+  getSettings: () => {
+    return ipcRenderer.invoke('get-settings')
+  },
+  
+  saveSettings: (settings: { updateFrequency: string; startupActions: string[]; browserType?: string }) => {
+    return ipcRenderer.invoke('save-settings', settings)
+  },
+  
+  // 显示消息框
+  showMessage: (message: string, type: 'info' | 'error' | 'warning' | 'success' = 'info') => {
+    return ipcRenderer.invoke('show-message', message, type)
   }
 }
 

@@ -8,8 +8,8 @@ import { getFileUpgrade } from './ulUtils'
 
 import https from 'https'
 import http from 'http'
-import { readFileSync, existsSync, mkdirSync, createWriteStream } from 'fs'
-import { app, BrowserWindow, dialog } from 'electron'
+import { readFileSync, existsSync, mkdirSync, createWriteStream ,rmdirSync, unlinkSync, statSync, readdirSync} from 'fs'
+import { app, BrowserWindow, dialog,shell } from 'electron'
 import StorePkg from 'electron-store';
 //@ts-ignore
 const Store = StorePkg.default || StorePkg;
@@ -81,6 +81,7 @@ export const loadEnvFile = () => {
 }
 
 export const startInitialize = async () => {
+    store.set('nodeStart', 'false')
     const appDir = getAppDir()
     const distDir = join(appDir, 'dist')
     const serverPath = join(distDir, 'server', 'index.mjs')
@@ -89,12 +90,20 @@ export const startInitialize = async () => {
         addLog2Vue(`错误: 服务器文件不存在: ${serverPath}`)
         throw new Error(`服务器文件不存在: ${serverPath}`)
     }
-    // await handleNodeServer()
+    await handleNodeServer()
 
     // 更新窗口加载地址
     const mainWindow = getMainWindow()
     if (mainWindow) {
         const finalUrl = actualPort ? buildUrlWithPort(import.meta.env.VITE_UL_CONF_URL!, actualPort) : import.meta.env.VITE_UL_CONF_URL!
+        store.set('finalUrl', finalUrl)
+        const settingsStore = new Store({ name: 'settings' })
+        const startupActions = settingsStore.get('startupActions', []) as string[]
+        if(startupActions.includes('openBrowser')){
+            openBrowserWithType(finalUrl,  settingsStore.get('browserType', 'default') as string)
+            console.log('默认浏览器加载');
+        }
+        
         // mainWindow.loadURL(finalUrl)
     }
 
@@ -103,6 +112,8 @@ export const startInitialize = async () => {
 const sleep = async (ms: number): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
+
+
 
 // 启动 Node 服务
 const handleNodeServer = async () => {
@@ -228,6 +239,7 @@ const startServer = async (serverPath: string, port?: number): Promise<void> => 
  */
 const handleDistZip = async () => {
     addLog2Vue('检查并下载程序...')
+    let clearDistPath = false
     const appDir = getAppDir()
     const distZipPath = join(appDir, 'dist.zip')
     const distDir = join(appDir, 'dist')
@@ -260,6 +272,7 @@ const handleDistZip = async () => {
                 distUrl = res.data.urlPath
                 await downloadFile(distUrl, distZipPath)
                 store.set('distVersion', newVersionCode)
+                clearDistPath = true
             } else {
                 addLog2Vue(`当前已是最新版本: ${distVersion}`)
             }
@@ -270,7 +283,10 @@ const handleDistZip = async () => {
         }
     }
     // 2. 解压到 dist 文件夹
-    if (!existsSync(serverPath)) {
+    if (clearDistPath || !existsSync(serverPath)) {
+        if(clearDistPath){
+            await deleteDir('dist')
+        }
         addLog2Vue('开始解压程序...')
         if (!existsSync(distDir)) {
             mkdirSync(distDir, { recursive: true })
@@ -281,12 +297,43 @@ const handleDistZip = async () => {
     }
 }
 
+
+/**
+ * 递归删除目录或文件
+ * @param folderName 相对于应用目录的文件夹或文件名
+ */
+const deleteDir =async (folderName: string) => {
+    const appDir = getAppDir();
+    const targetPath = join(appDir, folderName);
+
+    if (!existsSync(targetPath)) return;
+    const stat = statSync(targetPath);
+
+    if (stat.isDirectory()) {
+        addLog2Vue('开始清理' + folderName + '文件夹')
+        // 先删除目录内的所有文件和子目录
+        const files = readdirSync(targetPath);
+        for (const file of files) {
+            const curPath = join(targetPath, file);
+            const childStat = statSync(curPath);
+            if (childStat.isDirectory()) {
+                deleteDir(join(folderName, file));
+            } else {
+                unlinkSync(curPath);
+            }
+        }
+        // 删除空目录
+        rmdirSync(targetPath);
+    } else {
+        addLog2Vue('开始清理' + folderName + '文件')
+        // 是文件直接删除
+        unlinkSync(targetPath);
+    }
+}
 // 向 Vue 发送日志
 export const addLog2Vue = (log: string): void => {
     const mainWindow = getMainWindow()
     console.log('addLog2Vue', log);
-    console.log('addLog2Vue', BrowserWindow.getAllWindows().length);
-    
     // 如果渲染进程还没准备好，将日志添加到缓冲区
     if (!isRendererReady) {
         logBuffer.push(log)
@@ -472,6 +519,7 @@ const waitForServer = async (url: string, maxRetries: number = 30): Promise<void
                 })
             })
             addLog2Vue('程序已就绪')
+            store.set('nodeStart', 'true')
             return
         } catch (error) {
             if (i === maxRetries - 1) {
@@ -528,3 +576,120 @@ const checkRequiredEnvVars = (): { valid: boolean; missing: string[] } => {
         missing
     }
 }
+
+// 根据浏览器类型打开 URL
+export function openBrowserWithType(url: string, browserType: string = 'default'): void {
+    const targetUrl = url || 'http://localhost:3000'
+    
+    if (browserType === 'default' || !browserType) {
+      // 使用默认浏览器
+      shell.openExternal(targetUrl)
+      return
+    }
+  
+    // 根据平台和浏览器类型获取浏览器路径
+    let browserPath = ''
+    const platform = process.platform
+  
+    if (platform === 'win32') {
+      // Windows 平台
+      const commonPaths: { [key: string]: string[] } = {
+        chrome: [
+          'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+          'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+          join(process.env.LOCALAPPDATA || '', 'Google\\Chrome\\Application\\chrome.exe')
+        ],
+        edge: [
+          'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+          'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+          join(process.env.LOCALAPPDATA || '', 'Microsoft\\Edge\\Application\\msedge.exe')
+        ],
+        '360': [
+          'C:\\Users\\' + (process.env.USERNAME || '') + '\\AppData\\Roaming\\360se6\\Application\\360se.exe',
+          'C:\\Program Files\\360\\360se\\360se.exe',
+          'C:\\Program Files (x86)\\360\\360se\\360se.exe'
+        ],
+        firefox: [
+          'C:\\Program Files\\Mozilla Firefox\\firefox.exe',
+          'C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe'
+        ],
+        safari: [] // Safari 主要在 macOS 上
+      }
+  
+      const paths = commonPaths[browserType.toLowerCase()] || []
+      for (const path of paths) {
+        if (existsSync(path)) {
+          browserPath = path
+          break
+        }
+      }
+    } else if (platform === 'darwin') {
+      // macOS 平台 - 使用应用程序名称
+      const appNames: { [key: string]: string[] } = {
+        chrome: ['Google Chrome', 'Google Chrome.app'],
+        edge: ['Microsoft Edge', 'Microsoft Edge.app'],
+        firefox: ['Firefox', 'Firefox.app'],
+        safari: ['Safari', 'Safari.app'],
+        '360': [] // 360 浏览器在 macOS 上不常见
+      }
+  
+      const names = appNames[browserType.toLowerCase()] || []
+      let opened = false
+      for (const appName of names) {
+        try {
+          // 使用 open -a 命令打开应用程序
+          spawn('open', ['-a', appName, targetUrl], { detached: true })
+          opened = true
+          break
+        } catch (e) {
+          // 继续尝试下一个
+        }
+      }
+      if (!opened) {
+        // 如果找不到指定的浏览器，使用默认浏览器
+        console.warn(`未找到浏览器: ${browserType}，使用默认浏览器`)
+        shell.openExternal(targetUrl)
+      }
+      return
+    } else {
+      // Linux 平台 - 直接尝试启动，如果失败则使用默认浏览器
+      const commonCommands: { [key: string]: string[] } = {
+        chrome: ['google-chrome', 'chromium-browser', 'chromium'],
+        edge: ['microsoft-edge', 'microsoft-edge-stable'],
+        firefox: ['firefox'],
+        safari: [], // Safari 不在 Linux 上
+        '360': [] // 360 浏览器在 Linux 上不常见
+      }
+  
+      const commands = commonCommands[browserType.toLowerCase()] || []
+      if (commands.length > 0) {
+        // 尝试使用第一个命令启动
+        try {
+          spawn(commands[0], [targetUrl], { detached: true })
+          return
+        } catch (e) {
+          // 如果失败，尝试其他命令或使用默认浏览器
+          console.warn(`无法启动浏览器 ${commands[0]}:`, e)
+        }
+      }
+      // 如果找不到指定的浏览器，使用默认浏览器
+      console.warn(`未找到浏览器: ${browserType}，使用默认浏览器`)
+      shell.openExternal(targetUrl)
+      return
+    }
+  
+    // Windows 平台：如果找到了浏览器路径，启动它
+    if (browserPath) {
+      try {
+        spawn(browserPath, [targetUrl], { detached: true })
+      } catch (error) {
+        console.error(`无法启动浏览器 ${browserType}:`, error)
+        // 降级到默认浏览器
+        shell.openExternal(targetUrl)
+      }
+    } else {
+      // 如果找不到指定的浏览器，使用默认浏览器
+      console.warn(`未找到浏览器: ${browserType}，使用默认浏览器`)
+      shell.openExternal(targetUrl)
+    }
+  }

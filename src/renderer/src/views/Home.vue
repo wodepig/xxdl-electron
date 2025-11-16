@@ -72,7 +72,8 @@ const getLogClass = (log: string): string => {
   if (log.includes('完成') || log.includes('成功')) {
     return 'success'
   }
-  if (log.includes('开始') || log.includes('检查') || log.includes('下载')) {
+  const infoText = ['开始','检查','下载','可用']
+  if (infoText.filter(item => log.includes(item)).length > 0) {
     return 'info'
   }
   return 'default'
@@ -233,6 +234,7 @@ onUnmounted(() => {
       <section class="card log-card">
         <div class="section-header">
           <h2>应用初始化日志</h2>
+          <button @click="appendLog('1')">点我</button>
           <div v-if="showDownloadCard" class="progress-inline">
             <span class="progress-text">{{ downloadProgress }}%</span>
             <div class="progress-bar-inline">
