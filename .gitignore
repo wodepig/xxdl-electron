@@ -8,3 +8,4 @@ dist.zip
 dist
 *.env
 *.env.*
+!.env.example

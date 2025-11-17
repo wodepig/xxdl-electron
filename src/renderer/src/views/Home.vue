@@ -43,9 +43,12 @@ const logContainer = ref<HTMLDivElement | null>(null)
 const downloadProgress = ref(0)
 const isDownloading = ref(false)
 const showDownloadCard = ref(false)
-// 计算二维码图片 URL
+// 计算图片 URL
 const logoIconUrl = computed(() => {
-  const envPath = import.meta.env.VITE_APP_ICON || '../assets/image/electron.svg'
+  let envPath  = '../public/image/icon.png'
+  if(import.meta.env.VITE_APP_ICON){
+    envPath  = '../public/' + import.meta.env.VITE_APP_ICON
+  }
   return getImageUrl(envPath)
 })
 // 动态导入图片资源的辅助函数
@@ -55,7 +58,7 @@ const getImageUrl = (path: string): string => {
       return new URL(`${path}`, import.meta.url).href
     } catch (error) {
       console.error('加载图片失败:', error, path)
-      return new URL('../assets/image/wx_blank.png', import.meta.url).href
+      return new URL('../public/image/icon.png', import.meta.url).href
     }
 }
 const autoScroll = (): void => {

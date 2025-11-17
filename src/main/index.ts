@@ -65,6 +65,7 @@ function createAboutWindow(): void {
     show: false,
     autoHideMenuBar: true,
     resizable: true,
+    icon:join(__dirname, getIconPaht()),
     minimizable: true,
     maximizable: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -122,6 +123,7 @@ function createSettingsWindow(): void {
     width: 1000,
     height: 800,
     show: false,
+    icon:join(__dirname, getIconPaht()),
     autoHideMenuBar: true,
     resizable: true,
     minimizable: true,
@@ -242,6 +244,14 @@ function createMenu(): void {
   Menu.setApplicationMenu(menu)
 }
 
+// 获取图标
+function getIconPaht(): string {
+  let iconPath = '../../resources/image/icon.png'
+  if(import.meta.env.VITE_APP_ICON){
+    iconPath= '../../resources/'+ import.meta.env.VITE_APP_ICON
+  }
+  return iconPath
+}
 // 创建并显示窗口
 function createWindow(): void {
   // Create the browser window.
@@ -250,6 +260,7 @@ function createWindow(): void {
     height: 970,
     show: true, // 立即显示窗口
     autoHideMenuBar: false,
+    icon:join(__dirname, getIconPaht()),
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -351,7 +362,7 @@ app.whenReady().then(async () => {
   // mainWindow?.loadURL('https://www.baidu.com')
   mainWindow?.on('ready-to-show', async () => {
     mainWindow?.show()
-    await runInitialization()
+    // await runInitialization()
   })
 
 

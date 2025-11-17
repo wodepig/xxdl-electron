@@ -123,7 +123,7 @@ const getImageUrl = (path: string): string => {
       return new URL(`${path}`, import.meta.url).href
     } catch (error) {
       console.error('加载图片失败:', error, path)
-      return new URL('../assets/image/wx_blank.png', import.meta.url).href
+      return new URL('../public/image/wx_blank.png', import.meta.url).href
     }
 }
 
@@ -166,7 +166,11 @@ const appInfo = ref({
 
 // 计算二维码图片 URL
 const qrCodeUrl = computed(() => {
-  const envPath = import.meta.env.VITE_AUTHOR_WX_IMG || '../assets/image/wx_blank.png'
+  let envPath  = '../public/image/wx_blank.png'
+  if(import.meta.env.VITE_AUTHOR_WX_IMG){
+    envPath  = '../public/' + import.meta.env.VITE_AUTHOR_WX_IMG
+  }
+
   return getImageUrl(envPath)
 })
 
