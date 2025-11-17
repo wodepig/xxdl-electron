@@ -14,3 +14,38 @@ interface ImportMetaEnv {
   readonly VITE_APP_LINKS?: string
   // more env variables...
 }
+
+interface Window {
+  electron?: any
+  api?: {
+    onUpdateLog?: (callback: (log: string) => void) => void
+    removeUpdateLogListener?: () => void
+    getSystemInfo?: () => { platform: string; arch: string; language: string }
+    getVersions?: () => Record<string, string>
+    onNavigate?: (callback: (path: string) => void) => void
+    removeNavigateListener?: () => void
+    getSettings?: () => Promise<{
+      updateFrequency: string
+      startupActions: string[]
+      browserType: string
+    }>
+    saveSettings?: (settings: {
+      updateFrequency: string
+      startupActions: string[]
+      browserType?: string
+    }) => Promise<{ success: boolean }>
+    resetSettings?: () => Promise<{
+      success: boolean
+      settings?: {
+        updateFrequency: string
+        startupActions: string[]
+        browserType: string
+      }
+      error?: string
+    }>
+    showMessage?: (
+      message: string,
+      type?: 'info' | 'error' | 'warning' | 'success'
+    ) => Promise<void>
+  }
+}

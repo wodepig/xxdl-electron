@@ -77,6 +77,7 @@
       <!-- 操作按钮 -->
       <div class="card button-card">
         <div class="button-group">
+          <button class="reset-button" @click="resetSettings">重置应用</button>
           <button class="save-button" @click="saveSettings">保存设置</button>
           <button class="cancel-button" @click="closeWindow">关闭</button>
         </div>
@@ -96,24 +97,37 @@ type Settings = {
   browserType: BrowserType
 }
 
-const settings = ref<Settings>({
+const defaultSettings: Settings = {
   updateFrequency: 'onStart',
   startupActions: [],
   browserType: 'default'
-})
+}
+
+const allowedUpdateFrequencies: Settings['updateFrequency'][] = ['onStart', 'never', 'daily']
+const allowedBrowserTypes: BrowserType[] = ['default', 'chrome', 'edge', '360', 'firefox', 'safari']
+
+const settings = ref<Settings>({ ...defaultSettings })
+
+const normalizeSettings = (incoming: Partial<Settings> = {}): Settings => {
+  const updateFrequency = incoming.updateFrequency
+  const browserType = incoming.browserType
+  return {
+    updateFrequency: allowedUpdateFrequencies.includes(updateFrequency as Settings['updateFrequency'])
+      ? (updateFrequency as Settings['updateFrequency'])
+      : defaultSettings.updateFrequency,
+    startupActions: Array.isArray(incoming.startupActions) ? [...incoming.startupActions] : [],
+    browserType: allowedBrowserTypes.includes(browserType as BrowserType)
+      ? (browserType as BrowserType)
+      : defaultSettings.browserType
+  }
+}
 
 // 加载设置
 const loadSettings = async (): Promise<void> => {
   try {
     if (window.api?.getSettings) {
       const savedSettings = await window.api.getSettings()
-      const updateFrequency = savedSettings.updateFrequency as 'onStart' | 'never' | 'daily'
-      const browserType = savedSettings.browserType as BrowserType
-      settings.value = {
-        updateFrequency: (['onStart', 'never', 'daily'].includes(updateFrequency) ? updateFrequency : 'onStart') as 'onStart' | 'never' | 'daily',
-        startupActions: Array.isArray(savedSettings.startupActions) ? savedSettings.startupActions : [],
-        browserType: (['default', 'chrome', 'edge', '360', 'firefox', 'safari'].includes(browserType) ? browserType : 'default') as BrowserType
-      }
+      settings.value = normalizeSettings(savedSettings as Partial<Settings>)
     }
   } catch (error) {
     console.error('加载设置失败:', error)
@@ -167,6 +181,43 @@ const closeWindow = (): void => {
     window.electron.ipcRenderer.send('close-settings-window')
   } else {
     window.close()
+  }
+}
+
+const resetSettings = async (): Promise<void> => {
+  const confirmed = window.confirm('确定要重置应用设置并清空已保存的数据吗？此操作不可撤销。')
+  if (!confirmed) {
+    return
+  }
+
+  try {
+    if (!window.api?.resetSettings) {
+      throw new Error('resetSettings 接口不可用')
+    }
+
+    const result = await window.api.resetSettings()
+    if (result.success && result.settings) {
+      settings.value = normalizeSettings(result.settings as Partial<Settings>)
+      if (window.api?.showMessage) {
+        await window.api.showMessage('应用设置已恢复默认', 'success')
+      } else {
+        alert('应用设置已恢复默认')
+      }
+    } else {
+      const errorMsg = result.error || '未知错误'
+      if (window.api?.showMessage) {
+        await window.api.showMessage(`重置失败: ${errorMsg}`, 'error')
+      } else {
+        alert(`重置失败: ${errorMsg}`)
+      }
+    }
+  } catch (error) {
+    console.error('重置设置失败:', error)
+    if (window.api?.showMessage) {
+      await window.api.showMessage('重置设置失败: ' + (error as Error).message, 'error')
+    } else {
+      alert('重置设置失败')
+    }
   }
 }
 
@@ -354,6 +405,24 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
+}
+
+.reset-button {
+  margin-right: auto;
+  background: transparent;
+  color: #ff5f6d;
+  border: 1px solid rgba(255, 95, 109, 0.4);
+  padding: 10px 18px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.reset-button:hover {
+  background: rgba(255, 95, 109, 0.1);
+  border-color: rgba(255, 95, 109, 0.8);
+  transform: translateY(-1px);
 }
 
 .save-button,

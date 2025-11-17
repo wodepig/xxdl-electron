@@ -10,6 +10,12 @@ const Store = StorePkg.default || StorePkg
 const settingsStore = new Store({ name: 'settings' })
 const store = new Store();
 
+const DEFAULT_SETTINGS = {
+  updateFrequency: 'onStart',
+  startupActions: [] as string[],
+  browserType: 'default'
+} as const
+
 // 日志缓冲队列
 export let logBuffer: string[] = []
 export let isRendererReady = false
@@ -325,7 +331,7 @@ app.whenReady().then(async () => {
  
     // 执行初始化操作
   try {
-    // startInitialize()
+    startInitialize()
 
   } catch (error) {
     const errorMessage = `应用初始化失败: ${(error as Error).message}`
@@ -383,9 +389,9 @@ app.whenReady().then(async () => {
   // 获取设置
   ipcMain.handle('get-settings', () => {
     return {
-      updateFrequency: settingsStore.get('updateFrequency', 'onStart'), // 默认：每次启动时
-      startupActions: settingsStore.get('startupActions', []), // 默认：空数组
-      browserType: settingsStore.get('browserType', 'default') // 默认：默认浏览器
+      updateFrequency: settingsStore.get('updateFrequency', DEFAULT_SETTINGS.updateFrequency), // 默认：每次启动时
+      startupActions: settingsStore.get('startupActions', DEFAULT_SETTINGS.startupActions), // 默认：空数组
+      browserType: settingsStore.get('browserType', DEFAULT_SETTINGS.browserType) // 默认：默认浏览器
     }
   })
 
@@ -405,6 +411,21 @@ app.whenReady().then(async () => {
       return { success: true }
     } catch (error) {
       console.error('保存设置失败:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  // 重置设置
+  ipcMain.handle('reset-settings', () => {
+    try {
+      settingsStore.clear()
+      store.clear()
+      settingsStore.set('updateFrequency', DEFAULT_SETTINGS.updateFrequency)
+      settingsStore.set('startupActions', [...DEFAULT_SETTINGS.startupActions])
+      settingsStore.set('browserType', DEFAULT_SETTINGS.browserType)
+      return { success: true, settings: { ...DEFAULT_SETTINGS, startupActions: [...DEFAULT_SETTINGS.startupActions] } }
+    } catch (error) {
+      console.error('重置设置失败:', error)
       return { success: false, error: (error as Error).message }
     }
   })

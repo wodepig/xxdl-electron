@@ -86,6 +86,9 @@ export const startInitialize = async () => {
     const distDir = join(appDir, 'dist')
     const serverPath = join(distDir, 'server', 'index.mjs')
     await handleDistZip()
+    if(true){
+        return
+    }
     if (!existsSync(serverPath)) {
         addLog2Vue(`错误: 服务器文件不存在: ${serverPath}`)
         throw new Error(`服务器文件不存在: ${serverPath}`)
@@ -234,6 +237,95 @@ const startServer = async (serverPath: string, port?: number): Promise<void> => 
 }
 
 /**
+ * 判断是否应该检查更新（根据更新频率设置）
+ * @returns 是否应该检查更新
+ */
+const shouldCheckUpdate = (): boolean => {
+    const settingsStore = new Store({ name: 'settings' })
+    const updateFrequency = settingsStore.get('updateFrequency', 'onStart') as string
+    
+    // 从不更新
+    if (updateFrequency === 'never') {
+        addLog2Vue('注意: 更新频率已设置为"从不更新"，跳过更新检查')
+        return false
+    }
+    
+    // 每次启动时更新
+    if (updateFrequency === 'onStart') {
+        return true
+    }
+    
+    // 每天更新一次
+    if (updateFrequency === 'daily') {
+        const lastCheckTime = store.get('lastUpdateCheckTime', 0) as number
+        const now = Date.now()
+        const oneDayInMs = 24 * 60 * 60 * 1000 // 24小时的毫秒数
+        console.log('上次检查时间:', lastCheckTime);
+        
+        // 如果从未检查过，或者距离上次检查已经超过24小时
+        if (lastCheckTime === 0 || (now - lastCheckTime) >= oneDayInMs) {
+            return true
+        } else {
+            const hoursSinceLastCheck = Math.floor((now - lastCheckTime) / (60 * 60 * 1000))
+            addLog2Vue(`注意: 更新频率设置为"每天更新一次"，距离上次检查仅 ${hoursSinceLastCheck} 小时，跳过更新检查`)
+            return false
+        }
+    }
+    
+    // 默认行为：每次启动时更新
+    return true
+}
+
+/**
+ * 检查程序更新
+ * @param distVersion 当前版本号
+ * @returns 是否需要清理dist目录
+ */
+const checkUpdate = async (distVersion: number) => {
+    // 根据更新频率设置判断是否应该检查更新
+    if (!shouldCheckUpdate()) {
+        return false
+    }
+    
+    const appDir = getAppDir()
+    const distZipPath = join(appDir, 'dist.zip')
+    addLog2Vue('检查程序更新...')
+    // 使用当前版本号检查更新
+    const res = await getFileUpgrade(
+        import.meta.env.VITE_UL_CONF_AK!,
+        import.meta.env.VITE_UL_CONF_SK!,
+        import.meta.env.VITE_UL_CONF_FILEKEY!,
+        distVersion
+    )
+    console.log(JSON.stringify(res))
+
+    // 更新检查完成后，更新最后检查时间（用于 daily 模式）
+    const settingsStore = new Store({ name: 'settings' })
+    const updateFrequency = settingsStore.get('updateFrequency', 'onStart') as string
+    if (updateFrequency === 'daily') {
+        store.set('lastUpdateCheckTime', Date.now())
+    }
+
+    if (res && res.code === 200) {
+        // 检查是否有新版本
+        const newVersionCode = res.data.versionCode
+        if (newVersionCode > distVersion) {
+            addLog2Vue(`发现新版本:${distVersion} -> ${newVersionCode},更新内容: ${res.data.promptUpgradeContent}`)
+            const distUrl = res.data.urlPath
+            // await downloadFile(distUrl, distZipPath)
+            store.set('distVersion', newVersionCode)
+            return true
+        } else {
+            addLog2Vue(`当前已是最新版本: ${distVersion}`)
+        }
+    } else if (res && res.code === 0) {
+        addLog2Vue('没有新版本')
+    } else {
+        addLog2Vue('检查更新失败，使用当前版本')
+    }
+    return false
+}
+/**
  * 处理dist.zip
  * @param distZipPath 程序压缩包路径
  */
@@ -247,44 +339,18 @@ const handleDistZip = async () => {
     // 从配置中读取 distVersion，如果不存在则设置为 1
     let distVersion = store.get('distVersion', 1) as number
     addLog2Vue(`当前版本号: ${distVersion}`)
-    let distUrl
     // 如果不存在 dist.zip，首次下载
     if (!existsSync(distZipPath)) {
         addLog2Vue('程序不存在，首次下载...')
-        distUrl = `https://api.upgrade.toolsetlink.com/v1/file/download?fileKey=${import.meta.env.VITE_UL_CONF_FILEKEY!}`
-        await downloadFile(distUrl, distZipPath)
+        const distUrl = `https://api.upgrade.toolsetlink.com/v1/file/download?fileKey=${import.meta.env.VITE_UL_CONF_FILEKEY!}`
+        // await downloadFile(distUrl, distZipPath)
     } else {
-        addLog2Vue('检查程序更新...')
-        // 使用当前版本号检查更新
-        const res = await getFileUpgrade(
-            import.meta.env.VITE_UL_CONF_AK!,
-            import.meta.env.VITE_UL_CONF_SK!,
-            import.meta.env.VITE_UL_CONF_FILEKEY!,
-            distVersion
-        )
-        console.log(JSON.stringify(res))
-
-        if (res && res.code === 200) {
-            // 检查是否有新版本
-            const newVersionCode = res.data.versionCode
-            if (newVersionCode > distVersion) {
-                addLog2Vue(`发现新版本:${distVersion} -> ${newVersionCode},更新内容: ${res.data.promptUpgradeContent}`)
-                distUrl = res.data.urlPath
-                await downloadFile(distUrl, distZipPath)
-                store.set('distVersion', newVersionCode)
-                clearDistPath = true
-            } else {
-                addLog2Vue(`当前已是最新版本: ${distVersion}`)
-            }
-        } else if (res && res.code === 0) {
-            addLog2Vue('没有新版本')
-        } else {
-            addLog2Vue('检查更新失败，使用当前版本')
-        }
+        clearDistPath = await checkUpdate(distVersion)
     }
     // 2. 解压到 dist 文件夹
     if (clearDistPath || !existsSync(serverPath)) {
         if(clearDistPath){
+            addLog2Vue('开始清理dist文件夹')
             await deleteDir('dist')
         }
         addLog2Vue('开始解压程序...')
@@ -310,7 +376,7 @@ const deleteDir =async (folderName: string) => {
     const stat = statSync(targetPath);
 
     if (stat.isDirectory()) {
-        addLog2Vue('开始清理' + folderName + '文件夹')
+        // addLog2Vue('开始清理' + folderName + '文件夹')
         // 先删除目录内的所有文件和子目录
         const files = readdirSync(targetPath);
         for (const file of files) {

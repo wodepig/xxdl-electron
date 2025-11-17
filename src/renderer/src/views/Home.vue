@@ -66,7 +66,7 @@ const appendLog = (message: string): void => {
 }
 
 const getLogClass = (log: string): string => {
-  if (log.includes('失败') || log.includes('错误')) {
+  if (log.includes('失败') || log.includes('错误') || log.includes('注意')) {
     return 'error'
   }
   if (log.includes('完成') || log.includes('成功')) {

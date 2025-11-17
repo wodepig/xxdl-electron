@@ -60,6 +60,11 @@ const api = {
     return ipcRenderer.invoke('save-settings', settings)
   },
   
+  // 重置设置
+  resetSettings: () => {
+    return ipcRenderer.invoke('reset-settings')
+  },
+
   // 显示消息框
   showMessage: (message: string, type: 'info' | 'error' | 'warning' | 'success' = 'info') => {
     return ipcRenderer.invoke('show-message', message, type)
