@@ -273,7 +273,7 @@ onUnmounted(() => {
 
 <style scoped>
 .app-container {
-  min-height: 100vh;
+  height: 100vh;
   width: 100vw;
   margin: 0;
   padding: 0;
@@ -281,6 +281,7 @@ onUnmounted(() => {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .app-header {
@@ -319,6 +320,8 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .card {
@@ -378,15 +381,18 @@ onUnmounted(() => {
 }
 
 .log-card {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-height: 320px;
+  overflow: hidden;
+  position: relative;
 }
 
 .log-container {
-  flex: 1;
+  flex: 1 1 0;
   overflow-y: auto;
+  overflow-x: hidden;
   background-color: #f8f9fa;
   border: 1px solid #e9ecef;
   padding: 14px;
@@ -394,6 +400,27 @@ onUnmounted(() => {
   font-size: 13px;
   border-radius: 10px;
   margin-top: 16px;
+  min-height: 0;
+  height: 0;
+}
+
+/* 确保滚动条可见 */
+.log-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.log-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.log-container::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.log-container::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 
 .log-entry {

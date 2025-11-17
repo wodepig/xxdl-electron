@@ -35,7 +35,7 @@ function createAboutWindow(): void {
   // 创建新窗口
   aboutWindow = new BrowserWindow({
     width: 1000,
-    height: 800,
+    height: 900,
     show: false,
     autoHideMenuBar: true,
     resizable: true,

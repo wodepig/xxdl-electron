@@ -235,7 +235,11 @@ const copyToClipboard = async (text: string): Promise<void> => {
   try {
     await navigator.clipboard.writeText(text)
     // 显示复制成功提示（可以使用更优雅的提示方式）
-    alert(`已复制: ${text}`)
+    if (window.api?.showMessage) {
+          await window.api.showMessage(`已复制: ${text}`, 'success')
+        } else {
+          alert(`已复制: ${text}`)
+        }
   } catch (err) {
     // 降级方案：使用传统方法
     try {
@@ -247,10 +251,20 @@ const copyToClipboard = async (text: string): Promise<void> => {
       textArea.select()
       document.execCommand('copy')
       document.body.removeChild(textArea)
-      alert(`已复制: ${text}`)
+      if (window.api?.showMessage) {
+          await window.api.showMessage(`已复制: ${text}`, 'success')
+        } else {
+          alert(`已复制: ${text}`)
+        }
+      
     } catch (fallbackErr) {
+      if (window.api?.showMessage) {
+          await window.api.showMessage('复制失败，请手动复制', 'error')
+        } else {
+          alert('复制失败，请手动复制')
+        }
       console.error('复制失败:', fallbackErr)
-      alert('复制失败，请手动复制')
+      
     }
   }
 }
