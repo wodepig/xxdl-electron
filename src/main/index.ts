@@ -2,7 +2,7 @@ import { app, shell, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
 import { join } from 'path'
 
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import {  startInitialize, cleanupServerProcess,openBrowserWithType, addLog2Vue } from './utils'
+import {  startInitialize, cleanupServerProcess,openBrowserWithType, addLog2Vue,sleep } from './utils'
 import icon from '../../resources/icon.png?asset'
 import StorePkg from 'electron-store'
 //@ts-ignore
@@ -29,6 +29,20 @@ export let isRendererReady = false
 let mainWindow: BrowserWindow | null = null
 let aboutWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
+let initializationStarted = false
+
+const runInitialization = async () => {
+  if (initializationStarted) return
+  initializationStarted = true
+  try {
+    await sleep(1500)
+    await startInitialize()
+  } catch (error) {
+    const errorMessage = `应用初始化失败: ${(error as Error).message}`
+    console.error('应用初始化失败:', error)
+    dialog.showErrorBox('初始化错误', errorMessage)
+  }
+}
 
 // 创建关于窗口
 function createAboutWindow(): void {
@@ -328,22 +342,10 @@ app.whenReady().then(async () => {
 
   // 创建窗口
   createWindow()
- 
-    // 执行初始化操作
-  try {
-    startInitialize()
-
-  } catch (error) {
-    const errorMessage = `应用初始化失败: ${(error as Error).message}`
-    console.error('应用初始化失败:', error)
-    dialog.showErrorBox('初始化错误', errorMessage)
-    // app.quit()
-  }
   // mainWindow?.loadURL('https://www.baidu.com')
   mainWindow?.on('ready-to-show', async () => {
     mainWindow?.show()
-    
-
+    await runInitialization()
   })
 
 
