@@ -15,6 +15,12 @@ interface ImportMetaEnv {
   // more env variables...
 }
 
+type DownloadProgressPayload = {
+  visible: boolean
+  progress: number
+  isDownloading: boolean
+}
+
 interface Window {
   electron?: any
   api?: {
@@ -24,6 +30,8 @@ interface Window {
     getVersions?: () => Record<string, string>
     onNavigate?: (callback: (path: string) => void) => void
     removeNavigateListener?: () => void
+    onDownloadProgress?: (callback: (payload: DownloadProgressPayload) => void) => void
+    removeDownloadProgressListener?: () => void
     getSettings?: () => Promise<{
       updateFrequency: string
       startupActions: string[]

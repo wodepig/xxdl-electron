@@ -14,7 +14,7 @@ import StorePkg from 'electron-store';
 //@ts-ignore
 const Store = StorePkg.default || StorePkg;
 const store = new Store();
-import { logBuffer, isRendererReady } from './index'
+import { logBuffer, isRendererReady, downloadProgressBuffer, type DownloadProgressPayload } from './index'
 
 // 启动 Node 服务
 let serverProcess: ChildProcess | null = null
@@ -86,6 +86,7 @@ export const startInitialize = async () => {
     const distDir = join(appDir, 'dist')
     const serverPath = join(distDir, 'server', 'index.mjs')
     await handleDistZip()
+    // await downloadFile('https://cdn.npmmirror.com/binaries/node/v22.20.0/node-v22.20.0-x64.msi',join(appDir, 'node.msi'))
     if(true){
         return
     }
@@ -98,7 +99,7 @@ export const startInitialize = async () => {
     // 更新窗口加载地址
     const mainWindow = getMainWindow()
     if (mainWindow) {
-        const finalUrl = actualPort ? buildUrlWithPort(import.meta.env.VITE_UL_CONF_URL!, actualPort) : import.meta.env.VITE_UL_CONF_URL!
+        const finalUrl = actualPort !== null ? buildUrlWithPort(import.meta.env.VITE_UL_CONF_URL!, actualPort) : import.meta.env.VITE_UL_CONF_URL!
         store.set('finalUrl', finalUrl)
         const settingsStore = new Store({ name: 'settings' })
         const startupActions = settingsStore.get('startupActions', []) as string[]
@@ -312,7 +313,7 @@ const checkUpdate = async (distVersion: number) => {
         if (newVersionCode > distVersion) {
             addLog2Vue(`发现新版本:${distVersion} -> ${newVersionCode},更新内容: ${res.data.promptUpgradeContent}`)
             const distUrl = res.data.urlPath
-            // await downloadFile(distUrl, distZipPath)
+            await downloadFile(distUrl, distZipPath)
             store.set('distVersion', newVersionCode)
             return true
         } else {
@@ -343,7 +344,7 @@ const handleDistZip = async () => {
     if (!existsSync(distZipPath)) {
         addLog2Vue('程序不存在，首次下载...')
         const distUrl = `https://api.upgrade.toolsetlink.com/v1/file/download?fileKey=${import.meta.env.VITE_UL_CONF_FILEKEY!}`
-        // await downloadFile(distUrl, distZipPath)
+        await downloadFile(distUrl, distZipPath)
     } else {
         clearDistPath = await checkUpdate(distVersion)
     }
@@ -411,6 +412,14 @@ export const addLog2Vue = (log: string): void => {
     }
 }
 
+const sendDownloadProgress = (payload: DownloadProgressPayload): void => {
+    const mainWindow = getMainWindow()
+    if (!isRendererReady || !mainWindow || mainWindow.isDestroyed()) {
+        downloadProgressBuffer.push(payload)
+        return
+    }
+    mainWindow.webContents.send('download-progress', payload)
+}
 
 // 获取程序运行目录
 const getAppDir = (): string => {
@@ -455,6 +464,7 @@ const downloadFile = async (url: string, destPath: string): Promise<void> => {
         const protocol = url.startsWith('https:') ? https : http
 
         const file = createWriteStream(destPath)
+        sendDownloadProgress({ visible: true, progress: 0, isDownloading: true })
 
         protocol.get(url, (response) => {
             if (response.statusCode === 301 || response.statusCode === 302) {
@@ -465,23 +475,44 @@ const downloadFile = async (url: string, destPath: string): Promise<void> => {
 
             if (response.statusCode !== 200) {
                 file.close()
+                sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
                 reject(new Error(`下载失败: HTTP ${response.statusCode}`))
                 return
             }
+
+            const contentLengthHeader = response.headers['content-length']
+            const totalBytes = contentLengthHeader
+                ? parseInt(Array.isArray(contentLengthHeader) ? contentLengthHeader[0] : contentLengthHeader, 10)
+                : 0
+            let downloadedBytes = 0
+
+            response.on('data', (chunk: Buffer) => {
+                downloadedBytes += chunk.length
+                if (totalBytes > 0) {
+                    const progress = Math.min(100, Math.round((downloadedBytes / totalBytes) * 100))
+                    sendDownloadProgress({ visible: true, progress, isDownloading: true })
+                }
+            })
 
             response.pipe(file)
 
             file.on('finish', () => {
                 file.close()
                 addLog2Vue(`程序下载完成: ${destPath}`)
+                sendDownloadProgress({ visible: true, progress: 100, isDownloading: false })
+                setTimeout(() => {
+                    sendDownloadProgress({ visible: false, progress: 100, isDownloading: false })
+                }, 800)
                 resolve()
             })
 
             file.on('error', (err) => {
                 file.close()
+                sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
                 reject(err)
             })
         }).on('error', (err) => {
+            sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
             reject(err)
         })
     })

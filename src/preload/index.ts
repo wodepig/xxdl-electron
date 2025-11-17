@@ -51,6 +51,14 @@ const api = {
     ipcRenderer.removeAllListeners('navigate-to')
   },
   
+  onDownloadProgress: (callback: (payload: { visible: boolean; progress: number; isDownloading: boolean }) => void) => {
+    ipcRenderer.on('download-progress', (_event, payload) => callback(payload))
+  },
+
+  removeDownloadProgressListener: () => {
+    ipcRenderer.removeAllListeners('download-progress')
+  },
+
   // 设置相关 API
   getSettings: () => {
     return ipcRenderer.invoke('get-settings')

@@ -32,6 +32,12 @@ const versions = reactive<VersionInfo>({
   node: 'N/A'
 })
 
+type DownloadProgressPayload = {
+  visible: boolean
+  progress: number
+  isDownloading: boolean
+}
+
 const logs = ref<string[]>([])
 const logContainer = ref<HTMLDivElement | null>(null)
 const downloadProgress = ref(0)
@@ -139,29 +145,45 @@ const attachLogListener = (): void => {
 
 const detachLogListener = (): void => {
   if (!logListenerAttached) return
-  window.api?.removeUpdateLogListener()
+  window.api?.removeUpdateLogListener?.()
   logListenerAttached = false
 }
 
-const triggerDownload = (): void => {
-  showDownloadCard.value = true
+let downloadListenerAttached = false
+
+const handleDownloadProgress = (payload: DownloadProgressPayload): void => {
+  if (typeof payload.progress === 'number') {
+    downloadProgress.value = Math.max(0, Math.min(100, payload.progress))
+  }
+  isDownloading.value = !!payload.isDownloading
+  showDownloadCard.value = !!payload.visible
+  if (!payload.visible) {
+    setTimeout(() => {
+      showDownloadCard.value = false
+      isDownloading.value = false
+      downloadProgress.value = 0
+    }, 500)
+  }
 }
 
-const simulateDownload = (): void => {
-  showDownloadCard.value = true
-  isDownloading.value = true
-  downloadProgress.value = 0
+const attachDownloadListener = (): void => {
+  if (downloadListenerAttached) return
+  const registerDownloadProgress = window.api?.onDownloadProgress
+  if (registerDownloadProgress) {
+    registerDownloadProgress(handleDownloadProgress)
+    downloadListenerAttached = true
+  } else {
+    console.warn('window.api.onDownloadProgress 不可用')
+  }
+}
 
-  const interval = setInterval(() => {
-    downloadProgress.value += Math.min(100 - downloadProgress.value, Math.floor(Math.random() * 12) + 5)
-
-    if (downloadProgress.value >= 100) {
-      downloadProgress.value = 100
-      isDownloading.value = false
-      clearInterval(interval)
-      appendLog('下载完成')
-    }
-  }, 300)
+const detachDownloadListener = (): void => {
+  if (!downloadListenerAttached) return
+  const removeListener = window.api?.removeDownloadProgressListener
+  if (removeListener) {
+    removeListener()
+  }
+  downloadListenerAttached = false
 }
 
 onMounted(() => {
@@ -169,12 +191,14 @@ onMounted(() => {
   hydrateSystemInfo()
   appendLog('系统信息加载完成')
   attachLogListener()
+  attachDownloadListener()
   // 根据需要显示下载卡片
   // triggerDownload()
 })
 
 onUnmounted(() => {
   detachLogListener()
+  detachDownloadListener()
 })
 </script>
 
@@ -234,7 +258,7 @@ onUnmounted(() => {
       <section class="card log-card">
         <div class="section-header">
           <h2>应用初始化日志</h2>
-          <button @click="appendLog('1')">点我</button>
+          <!-- <button @click="appendLog('1')">点我添加日志</button> -->
           <div v-if="showDownloadCard" class="progress-inline">
             <span class="progress-text">{{ downloadProgress }}%</span>
             <div class="progress-bar-inline">
@@ -244,17 +268,7 @@ onUnmounted(() => {
                 :class="{ animated: isDownloading }"
               ></div>
             </div>
-            <button
-              class="download-button small"
-              @click="simulateDownload"
-              :disabled="isDownloading"
-            >
-              {{ isDownloading ? '下载中...' : '开始下载' }}
-            </button>
           </div>
-          <button v-else class="download-button secondary" @click="triggerDownload">
-            显示下载进度
-          </button>
         </div>
         <div class="log-container" ref="logContainer">
           <div
@@ -489,44 +503,6 @@ onUnmounted(() => {
   color: #667eea;
   min-width: 45px;
   text-align: right;
-}
-
-.download-button {
-  background: #667eea;
-  color: white;
-  border: none;
-  padding: 8px 22px;
-  border-radius: 22px;
-  cursor: pointer;
-  font-size: 0.95rem;
-  transition: all 0.3s ease;
-}
-
-.download-button.small {
-  padding: 6px 16px;
-  font-size: 0.85rem;
-  white-space: nowrap;
-}
-
-.download-button.secondary {
-  background: rgba(102, 126, 234, 0.15);
-  color: #667eea;
-}
-
-.download-button:hover:not(:disabled) {
-  background: #5a6fd8;
-  transform: translateY(-1px);
-}
-
-.download-button.secondary:hover:not(:disabled) {
-  background: rgba(102, 126, 234, 0.25);
-  color: #4f63d5;
-}
-
-.download-button:disabled {
-  background: #bbb;
-  cursor: not-allowed;
-  transform: none;
 }
 
 @keyframes pulse {

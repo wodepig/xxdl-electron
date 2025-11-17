@@ -18,6 +18,12 @@ const DEFAULT_SETTINGS = {
 
 // 日志缓冲队列
 export let logBuffer: string[] = []
+export type DownloadProgressPayload = {
+  visible: boolean
+  progress: number
+  isDownloading: boolean
+}
+export let downloadProgressBuffer: DownloadProgressPayload[] = []
 export let isRendererReady = false
 
 
@@ -371,6 +377,10 @@ app.whenReady().then(async () => {
       addLog2Vue(log)
     })
     logBuffer = [] // 清空缓冲区
+    downloadProgressBuffer.forEach(payload => {
+      mainWindow?.webContents.send('download-progress', payload)
+    })
+    downloadProgressBuffer = []
   })
 
   // 监听关闭关于窗口的请求
