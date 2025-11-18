@@ -107,8 +107,8 @@ export const startInitialize = async () => {
             openBrowserWithType(finalUrl,  settingsStore.get('browserType', 'default') as string)
             console.log('默认浏览器加载');
         }
-        
-        // mainWindow.loadURL(finalUrl)
+        await sleep(800)
+        mainWindow.loadURL(finalUrl)
     }
 
 }
@@ -150,7 +150,7 @@ const handleNodeServer = async () => {
     await startServer(serverPath, targetPort)
 
     // 4. 等待服务启动成功后加载地址
-    addLog2Vue(`等待程序就绪: ${targetUrl}`)
+    addLog2Vue(`等待程序就绪: ${targetUrl}, 正在打开...`)
     await waitForServer(targetUrl)
 }
 

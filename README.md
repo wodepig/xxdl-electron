@@ -17,6 +17,7 @@ VITE_AUTHOR_NAME=作者名
 VITE_AUTHOR_WX=作者微信
 VITE_AUTHOR_WX_IMG=微信二维码,如:image/wx.png
 VITE_AUTHOR_EMAIL=邮箱
+VITE_ADMIN_PASSWORD=打开开发者工具的密码, 默认admin123
 ```
 
 ### 设置图标

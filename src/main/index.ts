@@ -9,6 +9,8 @@ import StorePkg from 'electron-store'
 const Store = StorePkg.default || StorePkg
 const settingsStore = new Store({ name: 'settings' })
 const store = new Store();
+// 控制台管理员密码
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD  || 'admin123'
 
 const DEFAULT_SETTINGS = {
   updateFrequency: 'onStart',
@@ -36,6 +38,155 @@ let mainWindow: BrowserWindow | null = null
 let aboutWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
 let initializationStarted = false
+
+
+const refreshMainWindow = () => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    addLog2Vue('注意: 主窗口不可用，无法刷新')
+    return
+  }
+  addLog2Vue('刷新成功...')
+  // mainWindow.webContents.reload()
+  // void runInitialization()
+}
+
+const promptAdminPassword = (): Promise<string | null> => {
+  return new Promise((resolve) => {
+    const channelId = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+    const submitChannel = `admin-password:submit:${channelId}`
+    const cancelChannel = `admin-password:cancel:${channelId}`
+    let resolved = false
+
+    const promptWindow = new BrowserWindow({
+      width: 360,
+      height: 220,
+      parent: mainWindow || undefined,
+      modal: true,
+      show: false,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      autoHideMenuBar: true,
+      title: '管理员验证',
+      webPreferences: {
+        nodeIntegration: true,
+        contextIsolation: false
+      }
+    })
+
+    const cleanup = () => {
+      ipcMain.removeAllListeners(submitChannel)
+      ipcMain.removeAllListeners(cancelChannel)
+      if (!promptWindow.isDestroyed()) {
+        promptWindow.close()
+      }
+    }
+
+    ipcMain.once(submitChannel, (_event, password: string) => {
+      resolved = true
+      resolve(password)
+      cleanup()
+    })
+
+    ipcMain.once(cancelChannel, () => {
+      resolved = true
+      resolve(null)
+      cleanup()
+    })
+
+    promptWindow.on('closed', () => {
+      if (!resolved) {
+        resolve(null)
+      }
+      cleanup()
+    })
+
+    const html = `
+      <html lang="zh-cn">
+        <head>
+          <meta charset="utf-8" />
+          <title>管理员验证</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 20px; background: #f7f7f7; }
+            h2 { margin-top: 0; font-size: 18px; color: #333; }
+            form { display: flex; flex-direction: column; gap: 12px; }
+            input { padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; }
+            .actions { display: flex; justify-content: flex-end; gap: 8px; }
+            button { padding: 6px 16px; border-radius: 4px; border: none; cursor: pointer; font-size: 14px; }
+            button.primary { background: #4f7cff; color: white; }
+            button.secondary { background: #e0e0e0; }
+          </style>
+        </head>
+        <body>
+          <h2>请输入管理员密码</h2>
+          <form id="password-form">
+            <input id="password-input" type="password" placeholder="管理员密码" autofocus required />
+            <div class="actions">
+              <button type="button" class="secondary" id="cancel-btn">取消</button>
+              <button type="submit" class="primary">确认</button>
+            </div>
+          </form>
+          <script>
+            const { ipcRenderer } = require('electron');
+            const form = document.getElementById('password-form');
+            const cancelBtn = document.getElementById('cancel-btn');
+            const input = document.getElementById('password-input');
+
+            cancelBtn.addEventListener('click', () => {
+              ipcRenderer.send('${cancelChannel}');
+            });
+
+            form.addEventListener('submit', (event) => {
+              event.preventDefault();
+              ipcRenderer.send('${submitChannel}', input.value);
+            });
+          </script>
+        </body>
+      </html>
+    `
+
+    promptWindow.loadURL(`data:text/html;charset=UTF-8,${encodeURIComponent(html)}`)
+    promptWindow.once('ready-to-show', () => {
+      promptWindow.show()
+    })
+  })
+}
+
+const verifyAdminAccess = async (): Promise<boolean> => {
+  const password = await promptAdminPassword()
+  if (password === null) {
+    addLog2Vue('管理员操作已取消')
+    return false
+  }
+  if (password !== ADMIN_PASSWORD) {
+    await dialog.showMessageBox({
+      type: 'error',
+      title: '验证失败',
+      message: '管理员密码错误，请重试。'
+    })
+    addLog2Vue('管理员密码校验失败')
+    return false
+  }
+  addLog2Vue('管理员身份验证通过')
+  return true
+}
+
+const toggleDevToolsWithAuth = async () => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return
+  }
+  if (!mainWindow.webContents.isDevToolsOpened()) {
+    const allowed = await verifyAdminAccess()
+    if (!allowed) {
+      return
+    }
+    mainWindow.webContents.openDevTools()
+    addLog2Vue('开发者工具已打开')
+  } else {
+    mainWindow.webContents.closeDevTools()
+    addLog2Vue('开发者工具已关闭')
+  }
+}
 
 const runInitialization = async () => {
   if (initializationStarted) return
@@ -225,6 +376,13 @@ function createMenu(): void {
       }
     },
     {
+      label: '刷新',
+      accelerator: 'CmdOrCtrl+R',
+      click: () => {
+        refreshMainWindow()
+      }
+    },
+    {
       label: '设置',
       click: () => {
         // 创建新窗口显示设置页面
@@ -278,6 +436,42 @@ mainWindow.webContents.openDevTools()
   mainWindow?.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
+  })
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: '刷新',
+      accelerator: 'CmdOrCtrl+R',
+      click: () => refreshMainWindow()
+    },
+    { type: 'separator' },
+    {
+      label: '复制',
+      role: 'copy'
+    },
+    {
+      label: '粘贴',
+      role: 'paste'
+    },
+    {
+      label: '全选',
+      role: 'selectAll'
+    },
+    { type: 'separator' },
+    {
+      label: '开发者工具',
+      accelerator: 'CmdOrCtrl+Shift+I',
+      click: () => {
+        toggleDevToolsWithAuth().catch(console.error)
+      }
+    }
+  ])
+
+  mainWindow.webContents.on('context-menu', (event) => {
+    event.preventDefault()
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      contextMenu.popup({ window: mainWindow })
+    }
   })
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
@@ -362,7 +556,7 @@ app.whenReady().then(async () => {
   // mainWindow?.loadURL('https://www.baidu.com')
   mainWindow?.on('ready-to-show', async () => {
     mainWindow?.show()
-    // await runInitialization()
+    await runInitialization()
   })
 
 
