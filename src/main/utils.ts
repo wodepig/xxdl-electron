@@ -86,7 +86,7 @@ export const startInitialize = async () => {
     const distDir = join(appDir, 'dist')
     const serverPath = join(distDir, 'server', 'index.mjs')
     await handleDistZip()
-    // await downloadFile('https://cdn.npmmirror.com/binaries/node/v22.20.0/node-v22.20.0-x64.msi',join(appDir, 'node.msi'))
+    await downloadFile('https://dldir1.qq.com/qqfile/qq/PCQQ9.7.17/QQ9.7.17.29225.exe',join(appDir, 'node.msi'))
     if(true){
         return
     }
@@ -99,7 +99,7 @@ export const startInitialize = async () => {
     // 更新窗口加载地址
     const mainWindow = getMainWindow()
     if (mainWindow) {
-        const finalUrl = actualPort !== null ? buildUrlWithPort(import.meta.env.VITE_UL_CONF_URL!, actualPort) : import.meta.env.VITE_UL_CONF_URL!
+        const finalUrl = actualPort !== null && actualPort !== undefined ? buildUrlWithPort(import.meta.env.VITE_UL_CONF_URL!, actualPort as number) : import.meta.env.VITE_UL_CONF_URL!
         store.set('finalUrl', finalUrl)
         const settingsStore = new Store({ name: 'settings' })
         const startupActions = settingsStore.get('startupActions', []) as string[]
@@ -108,7 +108,14 @@ export const startInitialize = async () => {
             console.log('默认浏览器加载');
         }
         await sleep(800)
-        mainWindow.loadURL(finalUrl)
+        const currentWindow = getMainWindow()
+        if (currentWindow && !currentWindow.isDestroyed()) {
+            try {
+                currentWindow.loadURL(finalUrl)
+            } catch (error) {
+                console.error('加载URL失败:', error)
+            }
+        }
     }
 
 }
@@ -460,13 +467,28 @@ const getMainWindow = (): BrowserWindow | undefined => {
  */
 const downloadFile = async (url: string, destPath: string): Promise<void> => {
     console.log(`开始下载新版本...`)
+    const originalHttpProxy = process.env.HTTP_PROXY;
+const originalHttpsProxy = process.env.HTTPS_PROXY;
+console.log(originalHttpProxy);
+console.log(originalHttpsProxy);
+console.log(import.meta.env);
+
+
+
     return new Promise((resolve, reject) => {
-        const protocol = url.startsWith('https:') ? https : http
+        const isHttps = url.startsWith('https:')
+        const protocol = isHttps ? https : http
 
         const file = createWriteStream(destPath)
         sendDownloadProgress({ visible: true, progress: 0, isDownloading: true })
 
-        protocol.get(url, (response) => {
+        // 对于 HTTPS 请求，忽略证书验证错误（包括证书过期）
+        // 同时禁用代理，直接连接
+        const requestOptions = isHttps ? {
+            rejectUnauthorized: false
+        } : {}
+
+        const req = protocol.get(url, requestOptions, (response) => {
             if (response.statusCode === 301 || response.statusCode === 302) {
                 // 处理重定向
                 downloadFile(response.headers.location!, destPath).then(resolve).catch(reject)
@@ -488,6 +510,7 @@ const downloadFile = async (url: string, destPath: string): Promise<void> => {
 
             response.on('data', (chunk: Buffer) => {
                 downloadedBytes += chunk.length
+                
                 if (totalBytes > 0) {
                     const progress = Math.min(100, Math.round((downloadedBytes / totalBytes) * 100))
                     sendDownloadProgress({ visible: true, progress, isDownloading: true })
@@ -511,9 +534,75 @@ const downloadFile = async (url: string, destPath: string): Promise<void> => {
                 sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
                 reject(err)
             })
-        }).on('error', (err) => {
-            sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
-            reject(err)
+        })
+
+        req.on('error', (err: NodeJS.ErrnoException) => {
+            // 检查是否是证书相关错误
+            if (err.message && (err.message.includes('certificate') || err.message.includes('CERT'))) {
+                addLog2Vue(`警告: 检测到证书错误（${err.message}），已忽略并继续下载`)
+                // 对于证书错误，尝试重新请求（忽略证书验证）
+                if (isHttps) {
+                    const retryReq = https.get(url, { 
+                        rejectUnauthorized: false,
+                        agent: false  // 禁用代理
+                    }, (response) => {
+                        if (response.statusCode === 301 || response.statusCode === 302) {
+                            downloadFile(response.headers.location!, destPath).then(resolve).catch(reject)
+                            return
+                        }
+
+                        if (response.statusCode !== 200) {
+                            file.close()
+                            sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
+                            reject(new Error(`下载失败: HTTP ${response.statusCode}`))
+                            return
+                        }
+
+                        const contentLengthHeader = response.headers['content-length']
+                        const totalBytes = contentLengthHeader
+                            ? parseInt(Array.isArray(contentLengthHeader) ? contentLengthHeader[0] : contentLengthHeader, 10)
+                            : 0
+                        let downloadedBytes = 0
+
+                        response.on('data', (chunk: Buffer) => {
+                            downloadedBytes += chunk.length
+                            if (totalBytes > 0) {
+                                const progress = Math.min(100, Math.round((downloadedBytes / totalBytes) * 100))
+                                sendDownloadProgress({ visible: true, progress, isDownloading: true })
+                            }
+                        })
+
+                        response.pipe(file)
+
+                        file.on('finish', () => {
+                            file.close()
+                            addLog2Vue(`程序下载完成: ${destPath}`)
+                            sendDownloadProgress({ visible: true, progress: 100, isDownloading: false })
+                            setTimeout(() => {
+                                sendDownloadProgress({ visible: false, progress: 100, isDownloading: false })
+                            }, 800)
+                            resolve()
+                        })
+
+                        file.on('error', (fileErr) => {
+                            file.close()
+                            sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
+                            reject(fileErr)
+                        })
+                    })
+
+                    retryReq.on('error', (retryErr) => {
+                        sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
+                        reject(retryErr)
+                    })
+                } else {
+                    sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
+                    reject(err)
+                }
+            } else {
+                sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
+                reject(err)
+            }
         })
     })
 }
