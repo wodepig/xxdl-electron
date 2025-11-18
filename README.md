@@ -24,7 +24,7 @@ VITE_ADMIN_PASSWORD=打开开发者工具的密码, 默认admin123
 ### 设置图标
 图标获取可以谷歌搜: 软件名 logo circle png .我用的: https://www.vecteezy.com/png
 
-需要注意的是,VITE_APP_ICON和VITE_AUTHOR_WX_IMG对应的图片最好在<rootDiv>/resources下和<rootDir>/src/renderer/src/public下各有一份.
+需要注意的是,VITE_APP_ICON和VITE_AUTHOR_WX_IMG对应的图片最好在<rootDiv>/resources下和<rootDir>/src/renderer/src/assets下各有一份.
 
 原因请看: https://cn.electron-vite.org/guide/assets
 

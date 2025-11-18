@@ -360,7 +360,7 @@ const handleDistZip = async () => {
             addLog2Vue('开始清理dist文件夹')
             await deleteDir('dist')
         }
-        addLog2Vue('开始解压程序...')
+        addLog2Vue('开始解压程序到...' + distDir)
         if (!existsSync(distDir)) {
             mkdirSync(distDir, { recursive: true })
         }

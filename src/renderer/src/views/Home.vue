@@ -43,24 +43,41 @@ const logContainer = ref<HTMLDivElement | null>(null)
 const downloadProgress = ref(0)
 const isDownloading = ref(false)
 const showDownloadCard = ref(false)
-// 计算图片 URL
-const logoIconUrl = computed(() => {
-  let envPath  = '../public/image/icon.png'
-  if(import.meta.env.VITE_APP_ICON){
-    envPath  = '../public/' + import.meta.env.VITE_APP_ICON
+// 预加载 assets/image 下的所有图片，确保打包后也包含
+const imageAssets = import.meta.glob('../assets/image/*', {
+  eager: true,
+  import: 'default'
+}) as Record<string, string>
+
+const resolveIconFromEnv = (): string => {
+  const raw = import.meta.env.VITE_APP_ICON?.trim() || ''
+  const normalized = raw.replace(/^\/+/, '')
+  if (!normalized) {
+    return new URL('../assets/image/icon.png', import.meta.url).href
   }
-  return getImageUrl(envPath)
-})
-// 动态导入图片资源的辅助函数
-const getImageUrl = (path: string): string => {
-  if (!path) return ''
-    try {
-      return new URL(`${path}`, import.meta.url).href
-    } catch (error) {
-      console.error('加载图片失败:', error, path)
-      return new URL('../public/image/icon.png', import.meta.url).href
+
+  // env 中通常为 'image/shein.png' 这种形式
+  const candidates = [
+    `../assets/${normalized}`,
+    `../assets/image/${normalized.replace(/^image\//, '')}`
+  ]
+
+  for (const key of Object.keys(imageAssets)) {
+    if (candidates.some(c => key.endsWith(c.replace('..', '')))) {
+      return imageAssets[key]
     }
+  }
+
+  // 找不到就退回默认图
+  return new URL('../assets/image/icon.png', import.meta.url).href
 }
+
+// 计算图片 URL（支持通过 VITE_APP_ICON 切换）
+const logoIconUrl = computed(() => {
+  const url = resolveIconFromEnv()
+  console.log('logoIconUrl ->', url)
+  return url
+})
 const autoScroll = (): void => {
   nextTick(() => {
     if (logContainer.value) {
@@ -211,6 +228,7 @@ onUnmounted(() => {
       <div class="brand">
         <!-- <div style="object-position: bottom;"> -->
           <img style=" object-fit: contain;padding: 4px"   alt="logo" class="logo" :src="logoIconUrl" />
+         
         <!-- </div> -->
         <div>
           <h1>{{ appInfo.name }}</h1>

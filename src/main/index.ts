@@ -193,6 +193,9 @@ const runInitialization = async () => {
   initializationStarted = true
   try {
     await sleep(1500)
+    if(true){
+        return
+    }
     await startInitialize()
   } catch (error) {
     const errorMessage = `应用初始化失败: ${(error as Error).message}`

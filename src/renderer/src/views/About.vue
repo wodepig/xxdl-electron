@@ -123,7 +123,7 @@ const getImageUrl = (path: string): string => {
       return new URL(`${path}`, import.meta.url).href
     } catch (error) {
       console.error('加载图片失败:', error, path)
-      return new URL('../public/image/wx_blank.png', import.meta.url).href
+      return new URL('../assets/image/wx_blank.png', import.meta.url).href
     }
 }
 
@@ -164,16 +164,41 @@ const appInfo = ref({
 })
 
 
-// 计算二维码图片 URL
-const qrCodeUrl = computed(() => {
-  let envPath  = '../public/image/wx_blank.png'
-  if(import.meta.env.VITE_AUTHOR_WX_IMG){
-    envPath  = '../public/' + import.meta.env.VITE_AUTHOR_WX_IMG
+// 预加载 assets/image 下的所有图片，确保打包后也包含
+const imageAssets = import.meta.glob('../assets/image/*', {
+  eager: true,
+  import: 'default'
+}) as Record<string, string>
+
+const resolveIconFromEnv = (): string => {
+  const raw = import.meta.env.VITE_AUTHOR_WX_IMG?.trim() || ''
+  const normalized = raw.replace(/^\/+/, '')
+  if (!normalized) {
+    return new URL('../assets/image/wx_blank.png', import.meta.url).href
   }
 
-  return getImageUrl(envPath)
-})
+  // env 中通常为 'image/shein.png' 这种形式
+  const candidates = [
+    `../assets/${normalized}`,
+    `../assets/image/${normalized.replace(/^image\//, '')}`
+  ]
 
+  for (const key of Object.keys(imageAssets)) {
+    if (candidates.some(c => key.endsWith(c.replace('..', '')))) {
+      return imageAssets[key]
+    }
+  }
+
+  // 找不到就退回默认图
+  return new URL('../assets/image/wx_blank.png', import.meta.url).href
+}
+
+// 计算图片 URL（支持通过 VITE_AUTHOR_WX_IMG 切换）
+const qrCodeUrl = computed(() => {
+  const url = resolveIconFromEnv()
+  console.log('logoIconUrl ->', url)
+  return url
+})
 const authorInfo = ref<AuthorInfo>({
   name: import.meta.env.VITE_AUTHOR_NAME || '作者',
   email: import.meta.env.VITE_AUTHOR_EMAIL || '作者邮箱',
