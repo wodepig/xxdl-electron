@@ -1,5 +1,6 @@
 ## 介绍
 Electron启动器, 用来下载Node项目并运行. 支持自动更新.
+框架使用的是[electron-vite](https://cn.electron-vite.org/guide/introduction.html)
 
 ## 配置
 根据.env.example设置应用的信息, 配置如下:
@@ -28,3 +29,7 @@ VITE_ADMIN_PASSWORD=打开开发者工具的密码, 默认admin123
 原因请看: https://cn.electron-vite.org/guide/assets
 
 相关代码: getIconPaht() getImageUrl()
+
+## 打包
+pnpm build:win 或 pnpm build:win -- --mode shein
+相关的配置在electron-builder.yml中.默认打包为zip压缩包. 下载后解压即可使用
