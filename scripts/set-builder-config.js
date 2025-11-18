@@ -8,6 +8,7 @@ const yaml = require('js-yaml');
 const builderYmlPath = path.resolve(__dirname, '../electron-builder.yml');
 const appName = process.env.VITE_APP_NAME;
 const appIcon = process.env.VITE_APP_ICON;
+console.log(process.env);
 
 if (!appName || !appIcon) {
   console.warn('警告：未在 .env 文件中找到 VITE_APP_NAME 或 VITE_APP_ICON 环境变量。');
