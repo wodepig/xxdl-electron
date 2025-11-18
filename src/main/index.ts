@@ -8,6 +8,7 @@ import StorePkg from 'electron-store'
 //@ts-ignore
 const Store = StorePkg.default || StorePkg
 const settingsStore = new Store({ name: 'settings' })
+const windowStore = new Store({ name: 'window' })
 const store = new Store();
 // 控制台管理员密码
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD  || 'admin123'
@@ -192,16 +193,22 @@ const runInitialization = async () => {
   if (initializationStarted) return
   initializationStarted = true
   try {
-    await sleep(1500)
-    if(true){
-        return
-    }
+    await resetWindowsSizeAndPosition()
+    await sleep(200)
     await startInitialize()
   } catch (error) {
     const errorMessage = `应用初始化失败: ${(error as Error).message}`
     console.error('应用初始化失败:', error)
     dialog.showErrorBox('初始化错误', errorMessage)
   }
+}
+
+// 恢复窗口位置和大小
+function resetWindowsSizeAndPosition(): void {
+  const size = windowStore.get('size', [900, 970]) as [number, number]
+  const position = windowStore.get('position', [745, 210]) as [number, number]
+  mainWindow?.setSize(size[0], size[1])
+  mainWindow?.setPosition(position[0], position[1])
 }
 
 // 创建关于窗口
@@ -420,6 +427,7 @@ function createWindow(): void {
     width: 900,
     height: 970,
     show: true, // 立即显示窗口
+    frame: true,
     autoHideMenuBar: false,
     icon:join(__dirname, getIconPaht()),
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -435,7 +443,6 @@ function createWindow(): void {
   if (is.dev) {
     mainWindow.webContents.openDevTools()
   }
-mainWindow.webContents.openDevTools()
   mainWindow?.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
@@ -486,6 +493,14 @@ mainWindow.webContents.openDevTools()
       // console.log('生产环境，加载本地HTML文件:', join(__dirname, '../renderer/index.html'));
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+  mainWindow?.on('resize', () => {
+    windowStore.set('size', mainWindow?.getSize() || [900, 970])
+  })
+  mainWindow?.on('move', () => {
+    windowStore.set('position', mainWindow?.getPosition() || [745, 210])
+  })
+
+  
 }
 
 
@@ -560,6 +575,7 @@ app.whenReady().then(async () => {
   createWindow()
   // mainWindow?.loadURL('https://www.baidu.com')
   mainWindow?.on('ready-to-show', async () => {
+    mainWindow?.setTitle(import.meta.env.VITE_APP_NAME || '应用标题');
     mainWindow?.show()
     await runInitialization()
   })

@@ -106,7 +106,7 @@ export const startInitialize = async () => {
             openBrowserWithType(finalUrl, settingsStore.get('browserType', 'default') as string)
             console.log('默认浏览器加载');
         }
-        await sleep(800)
+        await sleep(100)
         const currentWindow = getMainWindow()
         if (currentWindow && !currentWindow.isDestroyed()) {
             try {
@@ -432,7 +432,7 @@ const getAppDir = (): string => {
     if (is.dev) {
         return join(__dirname, '../../')
     }
-    return app.getAppPath()
+    return join(app.getAppPath(), '../')
 }
 
 /**

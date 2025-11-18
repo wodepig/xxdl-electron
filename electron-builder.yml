@@ -1,5 +1,5 @@
 appId: com.electron.app
-productName: xxdl-electron-test
+productName: xxdl-electron
 directories:
   buildResources: build
 files:
@@ -12,7 +12,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: xxdl-electron-test
+  icon: resources/image/icon.png
   compression: normal
   target: zip
 nsis:

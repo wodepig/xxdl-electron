@@ -116,16 +116,6 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 
-// 动态导入图片资源的辅助函数
-const getImageUrl = (path: string): string => {
-  if (!path) return ''
-    try {
-      return new URL(`${path}`, import.meta.url).href
-    } catch (error) {
-      console.error('加载图片失败:', error, path)
-      return new URL('../assets/image/wx_blank.png', import.meta.url).href
-    }
-}
 
 type SystemInfo = {
   platform: string
