@@ -168,51 +168,42 @@ const handleNodeServer = async () => {
  */
 const startServer = async (serverPath: string, port?: number): Promise<void> => {
     return new Promise((resolve, reject) => {
-        // 在 Windows 上，需要找到 node.exe
-        // Electron 内置了 Node.js，但我们需要使用系统的 Node.js 或者 Electron 的 Node
-        // 实际上，我们可以直接使用 node 命令，或者使用 Electron 的 Node
-        const nodeExecutable = process.platform === 'win32'
-            ? join(dirname(process.execPath), 'node.exe')
-            : join(dirname(process.execPath), 'node')
-
-        // 如果 Electron 的 node 不存在，尝试使用系统的 node
-        const useSystemNode = !existsSync(nodeExecutable)
-        const nodeCmd = useSystemNode ? 'node' : nodeExecutable
-
-        addLog2Vue('启动程序中...')
-        console.log(`启动程序中: ${nodeCmd} ${serverPath}`)
+        const electronBinary = process.execPath
+        addLog2Vue(`启动程序中: ${electronBinary} ${serverPath}`)
 
         // 准备环境变量
         const env: NodeJS.ProcessEnv = {
             ...process.env,
-            // 设置环境变量确保子进程使用 UTF-8 编码
             PYTHONIOENCODING: 'utf-8',
             LANG: 'en_US.UTF-8',
-            LC_ALL: 'en_US.UTF-8'
+            LC_ALL: 'en_US.UTF-8',
+            ELECTRON_RUN_AS_NODE: '1'
         }
 
-        // 如果指定了端口，设置到环境变量中（服务器可能需要 PORT 环境变量）
         if (port) {
             env.PORT = port.toString()
             actualPort = port
         }
 
-        serverProcess = spawn(nodeCmd, [serverPath], {
+        serverProcess = spawn(electronBinary, [serverPath], {
             cwd: dirname(serverPath),
             stdio: 'pipe',
-            shell: process.platform === 'win32',
-            env
+            env,
+            shell: false
         })
 
         // 设置子进程输出的编码
         if (serverProcess.stdout) {
+            // addLog2Vue('设置输出1')
             serverProcess.stdout.setEncoding('utf8')
         }
         if (serverProcess.stderr) {
+            // addLog2Vue('设置输出2')
             serverProcess.stderr.setEncoding('utf8')
         }
 
         serverProcess.stdout?.on('data', (data) => {
+            // addLog2Vue('设置编码')
             // 确保输出使用 UTF-8 编码
             const output = Buffer.isBuffer(data) ? data.toString('utf8') : String(data)
             // 使用 Buffer 确保正确输出中文
@@ -677,7 +668,7 @@ const waitForServer = async (url: string, maxRetries: number = 30): Promise<void
     const urlObj = new URL(url)
     const hostname = urlObj.hostname
     const port = urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80)
-
+    
     for (let i = 0; i < maxRetries; i++) {
         try {
             await new Promise<void>((resolve, reject) => {
