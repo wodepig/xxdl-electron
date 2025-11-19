@@ -51,9 +51,9 @@ const run = (command, args) => {
 }
 
 try {
-//   run('pnpm', ['typecheck'])
-//   run('pnpm', ['electron-vite', 'build', '--mode', mode])
-//   run('pnpm', ['electron-builder', `--${target}`])
+  run('pnpm', ['typecheck'])
+  run('pnpm', ['electron-vite', 'build', '--mode', mode])
+  run('pnpm', ['electron-builder', `--${target}`])
   console.log('Build finished successfully.')
 } finally {
   if (changed) {

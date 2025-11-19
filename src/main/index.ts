@@ -47,7 +47,7 @@ const refreshMainWindow = () => {
     return
   }
   addLog2Vue('刷新成功...')
-  // mainWindow.webContents.reload()
+  mainWindow.webContents.reload()
   // void runInitialization()
 }
 
