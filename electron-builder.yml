@@ -1,5 +1,5 @@
-appId: shein.xxdl.xyz
-productName: 希音工具
+appId: electron.com
+productName: xxdl-electron
 directories:
   buildResources: build
 files:

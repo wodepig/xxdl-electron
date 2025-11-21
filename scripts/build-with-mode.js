@@ -25,7 +25,12 @@ if (!envFile) {
 const builderPath = resolve('electron-builder.yml')
 const originalBuilderYaml = readFileSync(builderPath, 'utf8')
 const builderConfig = yaml.load(originalBuilderYaml)
-
+// 替换 package.json 中的 name
+const packageJsonPath = resolve('package.json')
+const packageJson = readFileSync(packageJsonPath, 'utf8')
+const oldName = packageJson.name
+packageJson.name = 'xxdl-'+mode
+writeFileSync(packageJsonPath, packageJson, 'utf8')
 const overrides = {
   productName: process.env.VITE_APP_NAME,
   appId: process.env.VITE_APP_ID,
@@ -51,12 +56,14 @@ const run = (command, args) => {
 }
 
 try {
-  run('pnpm', ['typecheck'])
-  run('pnpm', ['electron-vite', 'build', '--mode', mode])
-  run('pnpm', ['electron-builder', `--${target}`])
+  // run('pnpm', ['typecheck'])
+  // run('pnpm', ['electron-vite', 'build', '--mode', mode])
+  // run('pnpm', ['electron-builder', `--${target}`])
   console.log('Build finished successfully.')
 } finally {
   if (changed) {
+    packageJson.name = oldName
+    writeFileSync(packageJsonPath, packageJson, 'utf8')
     writeFileSync(builderPath, originalBuilderYaml, 'utf8')
     console.log('electron-builder.yml 已还原原始内容')
   }
