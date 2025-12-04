@@ -1,7 +1,10 @@
 ## 介绍
 Electron启动器, 用来下载Node项目并运行. 支持自动更新.
 框架使用的是[electron-vite](https://cn.electron-vite.org/guide/introduction.html)
-
+自动更新服务提供: [UpgradeLink](http://upgrade.toolsetlink.com/)
+## 使用
+Nuxt或Next全栈项目开发后, 打包并构建. 然后把构建物上传到UpgradeLink的文件升级服务中.
+根据环境变量配置应用的信息.
 ## 配置
 根据.env.example设置应用的信息, 配置如下:
 ```
@@ -36,7 +39,7 @@ AI写的
 
 ## 打包
 pnpm build:win 打包windows下的安装包
-"build:win:shein": "node scripts/build-with-mode.js shein win"
+"build:win:mode": "node scripts/build-with-mode.js shein win"
 打包.env.shein的环境变量. 会在打包前执行scripts/build-with-mode.js替换electron-builder.yml的部分字段然后打包成zip包
 相关的配置在electron-builder.yml中.默认打包为zip压缩包. 下载后解压即可使用
 
