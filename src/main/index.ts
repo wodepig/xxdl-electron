@@ -4,9 +4,10 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import {  startInitialize, cleanupServerProcess,openBrowserWithType, addLog2Vue,sleep } from './utils'
 import icon from '../../resources/icon.png?asset'
-import StorePkg from 'electron-store'
-//@ts-ignore
-const Store = StorePkg.default || StorePkg
+import Store from 'electron-store';
+// import StorePkg from 'electron-store'
+// //@ts-ignore
+// const Store = StorePkg.default || StorePkg
 const settingsStore = new Store({ name: 'settings' })
 const windowStore = new Store({ name: 'window' })
 const store = new Store();

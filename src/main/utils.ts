@@ -10,9 +10,10 @@ import https from 'https'
 import http from 'http'
 import { readFileSync, existsSync, mkdirSync, createWriteStream, rmdirSync, unlinkSync, statSync, readdirSync } from 'fs'
 import { app, BrowserWindow, dialog, shell } from 'electron'
-import StorePkg from 'electron-store';
+// import StorePkg from 'electron-store';
+import Store from 'electron-store';
 //@ts-ignore
-const Store = StorePkg.default || StorePkg;
+// const Store = StorePkg.default || StorePkg;
 const store = new Store();
 import { logBuffer, isRendererReady, downloadProgressBuffer, type DownloadProgressPayload } from './index'
 
@@ -691,6 +692,7 @@ const waitForServer = async (url: string, maxRetries: number = 30): Promise<void
             return
         } catch (error) {
             if (i === maxRetries - 1) {
+                addLog2Vue(JSON.stringify(error))
                 throw new Error('程序启动超时')
             }
             await new Promise(resolve => setTimeout(resolve, 1000))

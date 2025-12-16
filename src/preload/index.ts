@@ -3,9 +3,10 @@ import { electronAPI } from '@electron-toolkit/preload'
 // 添加调试日志
 console.log('Preload script is loading...')
 console.log('process.contextIsolated:', process.contextIsolated)
-import StorePkg from 'electron-store';
+import Store from 'electron-store';
+// import StorePkg from 'electron-store';
 //@ts-ignore
-const Store = StorePkg.default || StorePkg;
+// const Store = StorePkg.default || StorePkg;
 const store = new Store();
 // 获取系统信息和版本信息
 const getSystemInfo = () => {
