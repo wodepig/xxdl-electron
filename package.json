@@ -1,7 +1,7 @@
 {
-  "name": "xxdl-electron",
+  "name": "xxdl-shein",
   "version": "1.0.0",
-  "description": "An Electron application with Vue and TypeScript",
+  "description": "希音平台自动化工具",
   "main": "./out/main/index.js",
   "author": "example.com",
   "homepage": "https://electron-vite.org",
@@ -26,9 +26,11 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@toolsetlink/upgradelink-api-typescript": "^2.1.0",
     "adm-zip": "^0.5.16",
+    "electron-conf": "^1.3.0",
     "electron-store": "^11.0.2",
     "electron-updater": "^6.3.9",
-    "vue-router": "^4.6.3"
+    "vue-router": "^4.6.3",
+    "yauzl": "^3.2.0"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "3.0.0",

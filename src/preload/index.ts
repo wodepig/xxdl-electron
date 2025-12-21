@@ -1,13 +1,16 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+// import { Conf } from 'electron-conf'
+// import { getAppDir } from '../main/utils'
+// import {getConfValue} from '../main/conf'
 // 添加调试日志
 console.log('Preload script is loading...')
 console.log('process.contextIsolated:', process.contextIsolated)
-import Store from 'electron-store';
+// import Store from 'electron-store';
 // import StorePkg from 'electron-store';
 //@ts-ignore
 // const Store = StorePkg.default || StorePkg;
-const store = new Store();
+// const store = new Store();
 // 获取系统信息和版本信息
 const getSystemInfo = () => {
   return {
@@ -17,9 +20,13 @@ const getSystemInfo = () => {
   }
 }
 
-const getVersions = () => {
+const getVersions =  () => {
+  // debugger
+  console.log('getVersions called')
+  // const conf = new Conf({name:'common'})
+  // console.log(conf.get('appVersion','1'))
   return {
-    app: store.get('distVersion', '1'), // 可以从package.json获取实际版本
+    app:  api.getConfValue({key:'appVersion',defaultValue:'1'}), // 可以从package.json获取实际版本
     electron: process.versions.electron,
     chrome: process.versions.chrome,
     node: process.versions.node
@@ -32,26 +39,32 @@ const api = {
     console.log('onUpdateLog called')
     ipcRenderer.on('log-message', (_event, value) => callback(value))
   },
-  
+
   removeUpdateLogListener: () => {
     console.log('removeUpdateLogListener called')
     // 移除所有日志监听器
     ipcRenderer.removeAllListeners('log-message')
   },
-  
+
   // 添加获取系统信息和版本信息的方法
   getSystemInfo: getSystemInfo,
   getVersions: getVersions,
-  
+  // getVersions: () => {
+  //   return ipcRenderer.invoke('get-versions')
+  // },
+
+  getConfValue: (conf:{key: string,defaultValue?: any,nameSpace?:string}) => {
+    return ipcRenderer.send('get-conf-value', conf)
+  },
   // 添加导航监听
   onNavigate: (callback: (path: string) => void) => {
     ipcRenderer.on('navigate-to', (_event, path) => callback(path))
   },
-  
+
   removeNavigateListener: () => {
     ipcRenderer.removeAllListeners('navigate-to')
   },
-  
+
   onDownloadProgress: (callback: (payload: { visible: boolean; progress: number; isDownloading: boolean }) => void) => {
     ipcRenderer.on('download-progress', (_event, payload) => callback(payload))
   },
@@ -64,11 +77,11 @@ const api = {
   getSettings: () => {
     return ipcRenderer.invoke('get-settings')
   },
-  
+
   saveSettings: (settings: { updateFrequency: string; startupActions: string[]; browserType?: string }) => {
     return ipcRenderer.invoke('save-settings', settings)
   },
-  
+
   // 重置设置
   resetSettings: () => {
     return ipcRenderer.invoke('reset-settings')

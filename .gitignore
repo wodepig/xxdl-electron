@@ -9,3 +9,8 @@ dist
 *.env
 *.env.*
 !.env.example
+.idea
+# 忽略electron-conf创建的配置文件
+window.json
+settings.json
+common.json

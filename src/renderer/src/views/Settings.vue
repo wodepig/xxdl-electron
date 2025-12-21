@@ -137,19 +137,20 @@ const loadSettings = async (): Promise<void> => {
 // 保存设置
 const saveSettings = async (): Promise<void> => {
   try {
+    // debugger
     if (window.api?.saveSettings) {
       // 确保数据是可序列化的：创建新的纯数据对象
       const settingsToSave: { updateFrequency: string; startupActions: string[]; browserType: string } = {
         updateFrequency: String(settings.value.updateFrequency),
-        startupActions: Array.isArray(settings.value.startupActions) 
+        startupActions: Array.isArray(settings.value.startupActions)
           ? [...settings.value.startupActions].map(String)
           : [],
         browserType: String(settings.value.browserType || 'default')
       }
-      
+
       const result = await window.api.saveSettings(settingsToSave)
       console.log(result);
-      
+
       if (result.success) {
         // 使用 Electron 的 dialog 显示消息
         if (window.api?.showMessage) {

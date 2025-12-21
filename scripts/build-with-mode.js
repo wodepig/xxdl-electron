@@ -79,8 +79,9 @@ const start = ()=>{
   }
   writeFileSync(builderPath, yaml.dump(builderConfig), 'utf8')
   build()
+  // 还原
   writeFileSync(packageJsonPath, JSON.stringify(packageJsonOld, null, 2), 'utf8')
-  writeFileSync(builderPath, builderConfigOld, 'utf8')
+  writeFileSync(builderPath, yaml.dump(builderConfigOld), 'utf8')
   console.log('package.json和electron-builder.yml 已还原内容')
 }
 

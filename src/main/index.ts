@@ -4,13 +4,14 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import {  startInitialize, cleanupServerProcess,openBrowserWithType, addLog2Vue,sleep } from './utils'
 import icon from '../../resources/icon.png?asset'
-import Store from 'electron-store';
+import {getConfValue, setConfValue,clearConf} from '../main/conf'
+// import Store from 'electron-store';
 // import StorePkg from 'electron-store'
 // //@ts-ignore
 // const Store = StorePkg.default || StorePkg
-const settingsStore = new Store({ name: 'settings' })
-const windowStore = new Store({ name: 'window' })
-const store = new Store();
+// const settingsStore = new Store({ name: 'settings' })
+// const windowStore = new Store({ name: 'window' })
+// const store = new Store();
 // 控制台管理员密码
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD  || 'admin123'
 
@@ -206,8 +207,10 @@ const runInitialization = async () => {
 
 // 恢复窗口位置和大小
 function resetWindowsSizeAndPosition(): void {
-  const size = windowStore.get('size', [900, 970]) as [number, number]
-  const position = windowStore.get('position', [745, 210]) as [number, number]
+  // const size = windowStore.get('size', [900, 970]) as [number, number]
+  const size = getConfValue('size', [900, 970], 'window') as [number, number]
+  const position = getConfValue('position', [745, 210], 'window') as [number, number]
+  // const position = windowStore.get('position', [745, 210]) as [number, number]
   mainWindow?.setSize(size[0], size[1])
   mainWindow?.setPosition(position[0], position[1])
 }
@@ -334,17 +337,20 @@ function createSettingsWindow(): void {
 
 // 在浏览器中打开
 function openInBrowser(): void {
-  const nodeStart = store.get('nodeStart', 'false') as string
+  // const nodeStart = store.get('nodeStart', 'false') as string
+  const nodeStart = getConfValue('nodeStart', 'false') as string
   if (nodeStart === 'false') {
     showMessageBox('程序未启动', 'error')
     return
   }
-  const finalUrl = store.get('finalUrl', '') as string
+  // const finalUrl = store.get('finalUrl', '') as string
+  const finalUrl = getConfValue('finalUrl','') as string
   if (finalUrl === '') {
     showMessageBox('地址配置错误', 'error')
     return
   }
-  const browserType = settingsStore.get('browserType', 'default') as string
+  // const browserType = settingsStore.get('browserType', 'default') as string
+  const browserType = getConfValue('browserType','default','settings') as string
   openBrowserWithType(finalUrl, browserType)
 }
 
@@ -488,20 +494,22 @@ function createWindow(): void {
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     // console.log('开发环境，加载远程URL:', process.env['ELECTRON_RENDERER_URL']);
-    
+
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
       // console.log('生产环境，加载本地HTML文件:', join(__dirname, '../renderer/index.html'));
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
   mainWindow?.on('resize', () => {
-    windowStore.set('size', mainWindow?.getSize() || [900, 970])
+    // windowStore.set('size', mainWindow?.getSize() || [900, 970])
+    setConfValue('size', mainWindow?.getSize() || [900, 970],'window')
   })
   mainWindow?.on('move', () => {
-    windowStore.set('position', mainWindow?.getPosition() || [745, 210])
+    // windowStore.set('position', mainWindow?.getPosition() || [745, 210])
+    setConfValue('position', mainWindow?.getPosition() || [745, 210],'window')
   })
 
-  
+
 }
 
 
@@ -549,10 +557,10 @@ async function showMessageBox(message: string, type: 'info' | 'error' | 'warning
     buttons: ['确定']
   }
 
-  const targetWindow = settingsWindow && !settingsWindow.isDestroyed() 
-    ? settingsWindow 
-    : aboutWindow && !aboutWindow.isDestroyed() 
-      ? aboutWindow 
+  const targetWindow = settingsWindow && !settingsWindow.isDestroyed()
+    ? settingsWindow
+    : aboutWindow && !aboutWindow.isDestroyed()
+      ? aboutWindow
       : mainWindow
 
   if (targetWindow) {
@@ -624,13 +632,35 @@ app.whenReady().then(async () => {
     }
   })
 
+  // 保存设置
+  ipcMain.on('get-conf-value',  (_event, conf: { key: string,defaultValue?: any,nameSpace?:string}) => {
+    try {
+      return  getConfValue(conf.key,conf.defaultValue,conf.nameSpace)
+    } catch (error) {
+      return ''
+    }
+  })
+
+  ipcMain.handle('get-versions', () => {
+    return {
+      app: getConfValue('appVersion','1'), // 可以从package.json获取实际版本
+      electron: process.versions.electron,
+      chrome: process.versions.chrome,
+      node: process.versions.node
+    }
+  })
   // 设置相关的 IPC 处理
   // 获取设置
   ipcMain.handle('get-settings', () => {
-    return {
-      updateFrequency: settingsStore.get('updateFrequency', DEFAULT_SETTINGS.updateFrequency), // 默认：每次启动时
-      startupActions: settingsStore.get('startupActions', DEFAULT_SETTINGS.startupActions), // 默认：空数组
-      browserType: settingsStore.get('browserType', DEFAULT_SETTINGS.browserType) // 默认：默认浏览器
+    // return {
+    //   updateFrequency: settingsStore.get('updateFrequency', DEFAULT_SETTINGS.updateFrequency), // 默认：每次启动时
+    //   startupActions: settingsStore.get('startupActions', DEFAULT_SETTINGS.startupActions), // 默认：空数组
+    //   browserType: settingsStore.get('browserType', DEFAULT_SETTINGS.browserType) // 默认：默认浏览器
+    // }
+    return{
+      updateFrequency: getConfValue('updateFrequency',DEFAULT_SETTINGS.updateFrequency,'settings'),
+      startupActions: getConfValue('startupActions',DEFAULT_SETTINGS.startupActions,'settings'),
+      browserType: getConfValue('browserType',DEFAULT_SETTINGS.browserType,'settings'),
     }
   })
 
@@ -639,14 +669,16 @@ app.whenReady().then(async () => {
     try {
       // 确保数据是可序列化的
       const updateFrequency = String(settings.updateFrequency || 'onStart')
-      const startupActions = Array.isArray(settings.startupActions) 
-        ? settings.startupActions.map(String) 
+      const startupActions = Array.isArray(settings.startupActions)
+        ? settings.startupActions.map(String)
         : []
       const browserType = String(settings.browserType || 'default')
-      
-      settingsStore.set('updateFrequency', updateFrequency)
-      settingsStore.set('startupActions', startupActions)
-      settingsStore.set('browserType', browserType)
+      setConfValue('updateFrequency', updateFrequency,'settings')
+      setConfValue('startupActions', startupActions,'settings')
+      setConfValue('browserType', browserType,'settings')
+      // settingsStore.set('updateFrequency', updateFrequency)
+      // settingsStore.set('startupActions', startupActions)
+      // settingsStore.set('browserType', browserType)
       return { success: true }
     } catch (error) {
       console.error('保存设置失败:', error)
@@ -657,11 +689,16 @@ app.whenReady().then(async () => {
   // 重置设置
   ipcMain.handle('reset-settings', () => {
     try {
-      settingsStore.clear()
-      store.clear()
-      settingsStore.set('updateFrequency', DEFAULT_SETTINGS.updateFrequency)
-      settingsStore.set('startupActions', [...DEFAULT_SETTINGS.startupActions])
-      settingsStore.set('browserType', DEFAULT_SETTINGS.browserType)
+      clearConf('settings')
+      clearConf('common')
+      // settingsStore.clear()
+      // store.clear()
+      setConfValue('updateFrequency',DEFAULT_SETTINGS.updateFrequency,'settings')
+      setConfValue('startupActions',DEFAULT_SETTINGS.startupActions,'settings')
+      setConfValue('browserType',DEFAULT_SETTINGS.browserType,'settings')
+      // settingsStore.set('updateFrequency', DEFAULT_SETTINGS.updateFrequency)
+      // settingsStore.set('startupActions', [...DEFAULT_SETTINGS.startupActions])
+      // settingsStore.set('browserType', DEFAULT_SETTINGS.browserType)
       return { success: true, settings: { ...DEFAULT_SETTINGS, startupActions: [...DEFAULT_SETTINGS.startupActions] } }
     } catch (error) {
       console.error('重置设置失败:', error)
@@ -669,7 +706,7 @@ app.whenReady().then(async () => {
     }
   })
 
-  
+
 
   ipcMain.handle('show-message', async (_event, message: string, type: 'info' | 'error' | 'warning' | 'success' = 'info') => {
     await showMessageBox(message, type)

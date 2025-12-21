@@ -2,19 +2,22 @@ import { spawn, ChildProcess, execSync } from 'child_process'
 import { is } from '@electron-toolkit/utils'
 import { join, dirname } from 'path'
 import { createServer } from 'net'
+// 在文件顶部添加 yauzl 导入
+import yauzl from 'yauzl'
+import fs from 'fs'
 // 使用 require 方式导入解压库
-const AdmZip = require('adm-zip')
+// const AdmZip = require('adm-zip')
 import { getFileUpgrade } from './ulUtils'
-
+import {getConfValue, setConfValue} from '../main/conf'
 import https from 'https'
 import http from 'http'
 import { readFileSync, existsSync, mkdirSync, createWriteStream, rmdirSync, unlinkSync, statSync, readdirSync } from 'fs'
 import { app, BrowserWindow, dialog, shell } from 'electron'
 // import StorePkg from 'electron-store';
-import Store from 'electron-store';
+// import Store from 'electron-store';
 //@ts-ignore
 // const Store = StorePkg.default || StorePkg;
-const store = new Store();
+// const store = new Store();
 import { logBuffer, isRendererReady, downloadProgressBuffer, type DownloadProgressPayload } from './index'
 
 // 启动 Node 服务
@@ -82,7 +85,8 @@ export const loadEnvFile = () => {
 }
 
 export const startInitialize = async () => {
-    store.set('nodeStart', 'false')
+    // store.set('nodeStart', 'false')
+  setConfValue('nodeStart', 'false')
     const appDir = getAppDir()
     const distDir = join(appDir, 'dist')
     const serverPath = join(distDir, 'server', 'index.mjs')
@@ -100,11 +104,15 @@ export const startInitialize = async () => {
     const mainWindow = getMainWindow()
     if (mainWindow) {
         const finalUrl = actualPort !== null && actualPort !== undefined ? buildUrlWithPort(import.meta.env.VITE_UL_CONF_URL!, actualPort as number) : import.meta.env.VITE_UL_CONF_URL!
-        store.set('finalUrl', finalUrl)
-        const settingsStore = new Store({ name: 'settings' })
-        const startupActions = settingsStore.get('startupActions', []) as string[]
+        // store.set('finalUrl', finalUrl)
+      setConfValue('finalUrl', finalUrl)
+        // const settingsStore = new Store({ name: 'settings' })
+      const startupActions =  getConfValue('startupActions',[],'settings') as string[]
+        // const startupActions = settingsStore.get('startupActions', []) as string[]
         if (startupActions.includes('openBrowser')) {
-            openBrowserWithType(finalUrl, settingsStore.get('browserType', 'default') as string)
+          const browserType = getConfValue('browserType', 'default', 'settings')
+          // settingsStore.get('browserType', 'default') as string
+            openBrowserWithType(finalUrl, browserType)
             console.log('默认浏览器加载');
         }
         await sleep(100)
@@ -240,8 +248,10 @@ const startServer = async (serverPath: string, port?: number): Promise<void> => 
  * @returns 是否应该检查更新
  */
 const shouldCheckUpdate = (): boolean => {
-    const settingsStore = new Store({ name: 'settings' })
-    const updateFrequency = settingsStore.get('updateFrequency', 'onStart') as string
+    // const settingsStore = new Store({ name: 'settings' })
+
+    // const updateFrequency = settingsStore.get('updateFrequency', 'onStart') as string
+    const updateFrequency = getConfValue('updateFrequency','onStart','settings')
 
     // 从不更新
     if (updateFrequency === 'never') {
@@ -256,7 +266,8 @@ const shouldCheckUpdate = (): boolean => {
 
     // 每天更新一次
     if (updateFrequency === 'daily') {
-        const lastCheckTime = store.get('lastUpdateCheckTime', 0) as number
+        // const lastCheckTime = store.get('lastUpdateCheckTime', 0) as number
+        const lastCheckTime = getConfValue('lastUpdateCheckTime', 0,)
         const now = Date.now()
         const oneDayInMs = 24 * 60 * 60 * 1000 // 24小时的毫秒数
         console.log('上次检查时间:', lastCheckTime);
@@ -299,10 +310,12 @@ const checkUpdate = async (distVersion: number) => {
     console.log(JSON.stringify(res))
 
     // 更新检查完成后，更新最后检查时间（用于 daily 模式）
-    const settingsStore = new Store({ name: 'settings' })
-    const updateFrequency = settingsStore.get('updateFrequency', 'onStart') as string
+    // const settingsStore = new Store({ name: 'settings' })
+    // const updateFrequency = settingsStore.get('updateFrequency', 'onStart') as string
+    const updateFrequency = getConfValue('updateFrequency','onStart','settings')
     if (updateFrequency === 'daily') {
-        store.set('lastUpdateCheckTime', Date.now())
+      setConfValue('lastUpdateCheckTime', Date.now(),'settings')
+        // store.set('lastUpdateCheckTime', Date.now())
     }
 
     if (res && res.code === 200) {
@@ -312,7 +325,8 @@ const checkUpdate = async (distVersion: number) => {
             addLog2Vue(`发现新版本:${distVersion} -> ${newVersionCode},更新内容: ${res.data.promptUpgradeContent}`)
             const distUrl = res.data.urlPath
             await downloadFile(distUrl, distZipPath)
-            store.set('distVersion', newVersionCode)
+          setConfValue('distVersion', newVersionCode,)
+            // store.set('distVersion', newVersionCode)
             return true
         } else {
             addLog2Vue(`当前已是最新版本: ${distVersion}`)
@@ -336,7 +350,8 @@ const handleDistZip = async () => {
     const distDir = join(appDir, 'dist')
     const serverPath = join(distDir, 'server', 'index.mjs')
     // 从配置中读取 distVersion，如果不存在则设置为 1
-    let distVersion = store.get('distVersion', 1) as number
+    // let distVersion = store.get('distVersion', 1) as number
+    let distVersion = getConfValue('distVersion', 1)
     addLog2Vue(`当前版本号: ${distVersion}`)
     // 如果不存在 dist.zip，首次下载
     if (!existsSync(distZipPath)) {
@@ -346,6 +361,7 @@ const handleDistZip = async () => {
     } else {
         clearDistPath = await checkUpdate(distVersion)
     }
+  addLog2Vue('1')
     // 2. 解压到 dist 文件夹
     if (clearDistPath || !existsSync(serverPath)) {
         if (clearDistPath) {
@@ -356,7 +372,10 @@ const handleDistZip = async () => {
         if (!existsSync(distDir)) {
             mkdirSync(distDir, { recursive: true })
         }
-        await extractZip(distZipPath, distDir)
+      addLog2Vue('2')
+        // await extractZip(distZipPath, distDir)
+        await extractZip4Yauzl(distZipPath, distDir)
+      addLog2Vue('okok')
     } else {
         addLog2Vue('程序目录已存在，跳过解压')
     }
@@ -420,7 +439,7 @@ const sendDownloadProgress = (payload: DownloadProgressPayload): void => {
 }
 
 // 获取程序运行目录
-const getAppDir = (): string => {
+export const getAppDir = (): string => {
     if (is.dev) {
         return join(__dirname, '../../')
     }
@@ -454,7 +473,7 @@ const getMainWindow = (): BrowserWindow | undefined => {
  * 下载文件
  * @param url 下载地址
  * @param destPath 保存路径
- * @returns 
+ * @returns
  */
 const downloadFile = async (url: string, destPath: string): Promise<void> => {
     console.log(`开始下载新版本...`)
@@ -591,14 +610,99 @@ const downloadFile = async (url: string, destPath: string): Promise<void> => {
 }
 
 // 解压 ZIP 文件
-const extractZip = async (zipPath: string, extractTo: string): Promise<void> => {
-    try {
-        const zip = new AdmZip(zipPath)
-        zip.extractAllTo(extractTo, true)
+// const extractZip = async (zipPath: string, extractTo: string): Promise<void> => {
+//     try {
+//         const zip = new AdmZip(zipPath)
+//         zip.extractAllTo(extractTo, true)
+//         addLog2Vue(`文件解压完成: ${extractTo}`)
+//     } catch (error) {
+//         throw new Error(`解压失败: ${(error as Error).message}`)
+//     }
+// }
+
+
+// 替换原有的 extractZip 函数
+const extractZip4Yauzl = async (zipPath: string, extractTo: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    addLog2Vue('3开始解压文件...')
+
+    yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
+      addLog2Vue('4' + zipPath +extractTo)
+      if (err) {
+        reject(new Error(`解压失败: ${err.message}`))
+        return
+      }
+      addLog2Vue('5')
+      zipfile.readEntry()
+
+      zipfile.on('entry', (entry) => {
+        addLog2Vue('6')
+        if (/\/$/.test(entry.fileName)) {
+          // 处理目录
+          const dirPath = join(extractTo, entry.fileName)
+          addLog2Vue('7'+dirPath)
+          try {
+            if (!fs.existsSync(dirPath)) {
+              fs.mkdirSync(dirPath, { recursive: true })
+            }
+            zipfile.readEntry()
+          } catch (mkdirErr:any) {
+            addLog2Vue('8')
+            zipfile.close()
+            reject(new Error(`创建目录失败: ${mkdirErr.message}`))
+          }
+        } else {
+          // 处理文件
+          const filePath = join(extractTo, entry.fileName)
+          const dirPath = dirname(filePath)
+          addLog2Vue('9'+filePath+dirPath)
+          // 确保目录存在
+          try {
+            if (!fs.existsSync(dirPath)) {
+              fs.mkdirSync(dirPath, { recursive: true })
+            }
+          } catch (mkdirErr:any) {
+            zipfile.close()
+            reject(new Error(`创建目录失败: ${mkdirErr.message}`))
+            return
+          }
+          addLog2Vue('10')
+          // 解压文件
+          zipfile.openReadStream(entry, (readErr, readStream) => {
+            if (readErr) {
+              zipfile.close()
+              addLog2Vue('11')
+              reject(new Error(`读取文件失败: ${readErr.message}`))
+              return
+            }
+            addLog2Vue('12')
+            const writeStream = createWriteStream(filePath)
+            readStream.pipe(writeStream)
+
+            writeStream.on('close', () => {
+              zipfile.readEntry()
+            })
+
+            writeStream.on('error', (writeErr) => {
+              zipfile.close()
+              addLog2Vue('13')
+              reject(new Error(`写入文件失败: ${writeErr.message}`))
+            })
+          })
+        }
+      })
+
+      zipfile.on('end', () => {
         addLog2Vue(`文件解压完成: ${extractTo}`)
-    } catch (error) {
-        throw new Error(`解压失败: ${(error as Error).message}`)
-    }
+        resolve()
+      })
+
+      zipfile.on('error', (zipErr) => {
+        addLog2Vue('14'+zipErr.message)
+        reject(new Error(`解压失败: ${zipErr.message}`))
+      })
+    })
+  })
 }
 
 // 从 URL 中提取端口
@@ -669,7 +773,7 @@ const waitForServer = async (url: string, maxRetries: number = 30): Promise<void
     const urlObj = new URL(url)
     const hostname = urlObj.hostname
     const port = urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80)
-    
+
     for (let i = 0; i < maxRetries; i++) {
         try {
             await new Promise<void>((resolve, reject) => {
@@ -688,7 +792,8 @@ const waitForServer = async (url: string, maxRetries: number = 30): Promise<void
                 })
             })
             addLog2Vue('程序已就绪')
-            store.set('nodeStart', 'true')
+          setConfValue('nodeStart', true)
+            // store.set('nodeStart', 'true')
             return
         } catch (error) {
             if (i === maxRetries - 1) {

@@ -1,5 +1,6 @@
-appId: electron.com
-productName: xxdl-electron
+appId: shein.xxdl.xyz
+productName: xxdl-shein
+electronDist: D:\\soft\\electron
 directories:
   buildResources: build
 files:
