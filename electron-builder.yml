@@ -1,6 +1,5 @@
-appId: shein.xxdl.xyz
-productName: xxdl-shein
-electronDist: D:\\soft\\electron
+appId: electron.xxdl.xyz
+productName: xxdl-electron
 directories:
   buildResources: build
 files:
@@ -14,8 +13,9 @@ files:
 asarUnpack:
   - resources/**
 win:
-  icon: resources/image/shein.png
+  icon: resources/image/icon.png
   compression: normal
+  executableName: xxdl-electron
   target: zip
 nsis:
   artifactName: ${name}-${version}-setup.${ext}

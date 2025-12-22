@@ -69,13 +69,17 @@ const start = ()=>{
   // 读配置
   readConfig()
   // 变量替换
-  packageJson.name = getEnvValue('VITE_APP_NAME_EN')
+  packageJson.name = getEnvValue('VITE_APP_NAME')
   packageJson.description = getEnvValue('VITE_APP_DESC')
   writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2), 'utf8')
-  builderConfig.productName = getEnvValue('VITE_APP_NAME_EN')
+  builderConfig.productName = getEnvValue('VITE_APP_NAME')
   builderConfig.appId = getEnvValue('VITE_APP_ID')
+  builderConfig.win = { ...(builderConfig.win ?? {}) }
   if (process.env.VITE_APP_ICON) {
-    builderConfig.win = { ...(builderConfig.win ?? {}), icon: 'resources/' + process.env.VITE_APP_ICON }
+    builderConfig.win.icon = 'resources/' + process.env.VITE_APP_ICON
+  }
+  if (process.env.VITE_APP_EXE_NAME) {
+    builderConfig.win.executableName = process.env.VITE_APP_EXE_NAME
   }
   writeFileSync(builderPath, yaml.dump(builderConfig), 'utf8')
   build()
