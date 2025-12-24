@@ -6,10 +6,12 @@ out
 *.log*
 dist.zip
 dist
+dist_server
 *.env
 *.env.*
 !.env.example
 .idea
+extract_dir_name
 # 忽略electron-conf创建的配置文件
 window.json
 settings.json

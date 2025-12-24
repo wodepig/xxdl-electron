@@ -2,15 +2,13 @@ import { spawn, ChildProcess, execSync } from 'child_process'
 import { is } from '@electron-toolkit/utils'
 import { join, dirname } from 'path'
 import { createServer } from 'net'
-// 在文件顶部添加 yauzl 导入
-import yauzl from 'yauzl'
-import fs from 'fs'
 // 使用 require 方式导入解压库
-// const AdmZip = require('adm-zip')
+const AdmZip = require('adm-zip')
 import { getFileUpgrade } from './ulUtils'
 import {getConfValue, setConfValue} from '../main/conf'
 import https from 'https'
 import http from 'http'
+const extract_dir_name = 'dist_server'
 import { readFileSync, existsSync, mkdirSync, createWriteStream, rmdirSync, unlinkSync, statSync, readdirSync } from 'fs'
 import { app, BrowserWindow, dialog, shell } from 'electron'
 // import StorePkg from 'electron-store';
@@ -88,7 +86,7 @@ export const startInitialize = async () => {
     // store.set('nodeStart', 'false')
   setConfValue('nodeStart', 'false')
     const appDir = getAppDir()
-    const distDir = join(appDir, 'dist')
+    const distDir = join(appDir, extract_dir_name)
     const serverPath = join(distDir, 'server', 'index.mjs')
     await handleDistZip()
     // if (true) {
@@ -137,7 +135,7 @@ export const sleep = async (ms: number): Promise<void> => {
 // 启动 Node 服务
 const handleNodeServer = async () => {
     const appDir = getAppDir()
-    const distDir = join(appDir, 'dist')
+    const distDir = join(appDir, extract_dir_name)
     const serverPath = join(distDir, 'server', 'index.mjs')
     // 3. 检测端口占用并启动 Node 服务
     // 从 URL 中提取端口
@@ -347,7 +345,7 @@ const handleDistZip = async () => {
     let clearDistPath = false
     const appDir = getAppDir()
     const distZipPath = join(appDir, 'dist.zip')
-    const distDir = join(appDir, 'dist')
+    const distDir = join(appDir, extract_dir_name)
     const serverPath = join(distDir, 'server', 'index.mjs')
     // 从配置中读取 distVersion，如果不存在则设置为 1
     // let distVersion = store.get('distVersion', 1) as number
@@ -366,15 +364,15 @@ const handleDistZip = async () => {
     if (clearDistPath || !existsSync(serverPath)) {
         if (clearDistPath) {
             addLog2Vue('开始清理dist文件夹')
-            await deleteDir('dist')
+            await deleteDir(extract_dir_name)
         }
         addLog2Vue('开始解压程序到...' + distDir)
         if (!existsSync(distDir)) {
             mkdirSync(distDir, { recursive: true })
         }
       addLog2Vue('2')
-        // await extractZip(distZipPath, distDir)
-        await extractZip4Yauzl(distZipPath, distDir)
+        await extractZip(distZipPath, distDir)
+        // await extractZip4Yauzl(distZipPath, distDir)
       addLog2Vue('okok')
     } else {
         addLog2Vue('程序目录已存在，跳过解压')
@@ -610,99 +608,14 @@ const downloadFile = async (url: string, destPath: string): Promise<void> => {
 }
 
 // 解压 ZIP 文件
-// const extractZip = async (zipPath: string, extractTo: string): Promise<void> => {
-//     try {
-//         const zip = new AdmZip(zipPath)
-//         zip.extractAllTo(extractTo, true)
-//         addLog2Vue(`文件解压完成: ${extractTo}`)
-//     } catch (error) {
-//         throw new Error(`解压失败: ${(error as Error).message}`)
-//     }
-// }
-
-
-// 替换原有的 extractZip 函数
-const extractZip4Yauzl = async (zipPath: string, extractTo: string): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    addLog2Vue('3开始解压文件...')
-
-    yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
-      addLog2Vue('4' + zipPath +extractTo)
-      if (err) {
-        reject(new Error(`解压失败: ${err.message}`))
-        return
-      }
-      addLog2Vue('5')
-      zipfile.readEntry()
-
-      zipfile.on('entry', (entry) => {
-        addLog2Vue('6')
-        if (/\/$/.test(entry.fileName)) {
-          // 处理目录
-          const dirPath = join(extractTo, entry.fileName)
-          addLog2Vue('7'+dirPath)
-          try {
-            if (!fs.existsSync(dirPath)) {
-              fs.mkdirSync(dirPath, { recursive: true })
-            }
-            zipfile.readEntry()
-          } catch (mkdirErr:any) {
-            addLog2Vue('8')
-            zipfile.close()
-            reject(new Error(`创建目录失败: ${mkdirErr.message}`))
-          }
-        } else {
-          // 处理文件
-          const filePath = join(extractTo, entry.fileName)
-          const dirPath = dirname(filePath)
-          addLog2Vue('9'+filePath+dirPath)
-          // 确保目录存在
-          try {
-            if (!fs.existsSync(dirPath)) {
-              fs.mkdirSync(dirPath, { recursive: true })
-            }
-          } catch (mkdirErr:any) {
-            zipfile.close()
-            reject(new Error(`创建目录失败: ${mkdirErr.message}`))
-            return
-          }
-          addLog2Vue('10')
-          // 解压文件
-          zipfile.openReadStream(entry, (readErr, readStream) => {
-            if (readErr) {
-              zipfile.close()
-              addLog2Vue('11')
-              reject(new Error(`读取文件失败: ${readErr.message}`))
-              return
-            }
-            addLog2Vue('12')
-            const writeStream = createWriteStream(filePath)
-            readStream.pipe(writeStream)
-
-            writeStream.on('close', () => {
-              zipfile.readEntry()
-            })
-
-            writeStream.on('error', (writeErr) => {
-              zipfile.close()
-              addLog2Vue('13')
-              reject(new Error(`写入文件失败: ${writeErr.message}`))
-            })
-          })
-        }
-      })
-
-      zipfile.on('end', () => {
+const extractZip = async (zipPath: string, extractTo: string): Promise<void> => {
+    try {
+        const zip = new AdmZip(zipPath)
+        zip.extractAllTo(extractTo, true)
         addLog2Vue(`文件解压完成: ${extractTo}`)
-        resolve()
-      })
-
-      zipfile.on('error', (zipErr) => {
-        addLog2Vue('14'+zipErr.message)
-        reject(new Error(`解压失败: ${zipErr.message}`))
-      })
-    })
-  })
+    } catch (error) {
+        throw new Error(`解压失败: ${(error as Error).message}`)
+    }
 }
 
 // 从 URL 中提取端口

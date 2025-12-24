@@ -4,7 +4,7 @@
       <h1>关于</h1>
     </header>
     <main class="about-main">
-  
+
 
       <!-- 作者信息和联系方式 -->
       <div class="card author-card">
@@ -202,13 +202,13 @@ const authorInfo = ref<AuthorInfo>({
 const links = computed<LinkInfo[]>(() => {
   const linksStr = import.meta.env.VITE_APP_LINKS || ''
   if (!linksStr) return []
-  
+
   return linksStr.split(';').filter(link => link.trim()).map(link => {
     const parts = link.trim().split('|')
     return {
-      name: parts[0] || '链接',
-      url: parts[1] || '#',
-      icon: parts[2] || '🔗'
+      name: parts[1] || '链接',
+      url: parts[2] || '#',
+      icon: parts[0] || '🔗'
     }
   })
 })
@@ -275,7 +275,7 @@ const copyToClipboard = async (text: string): Promise<void> => {
         } else {
           alert(`已复制: ${text}`)
         }
-      
+
     } catch (fallbackErr) {
       if (window.api?.showMessage) {
           await window.api.showMessage('复制失败，请手动复制', 'error')
@@ -283,7 +283,7 @@ const copyToClipboard = async (text: string): Promise<void> => {
           alert('复制失败，请手动复制')
         }
       console.error('复制失败:', fallbackErr)
-      
+
     }
   }
 }

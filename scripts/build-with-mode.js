@@ -69,7 +69,7 @@ const start = ()=>{
   // 读配置
   readConfig()
   // 变量替换
-  packageJson.name = getEnvValue('VITE_APP_NAME')
+  // packageJson.name = getEnvValue('VITE_APP_NAME')
   packageJson.description = getEnvValue('VITE_APP_DESC')
   writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2), 'utf8')
   builderConfig.productName = getEnvValue('VITE_APP_NAME')
