@@ -179,7 +179,7 @@ const saveSettings = async (): Promise<void> => {
 // 关闭窗口
 const closeWindow = (): void => {
   if (window.electron?.ipcRenderer) {
-    window.electron.ipcRenderer.send('close-settings-window')
+    window.electron.ipcRenderer.send('close-window','设置')
   } else {
     window.close()
   }

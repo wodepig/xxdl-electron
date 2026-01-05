@@ -5,13 +5,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import {  startInitialize, cleanupServerProcess,openBrowserWithType, addLog2Vue,sleep } from './utils'
 import icon from '../../resources/icon.png?asset'
 import {getConfValue, setConfValue,clearConf} from '../main/conf'
-// import Store from 'electron-store';
-// import StorePkg from 'electron-store'
-// //@ts-ignore
-// const Store = StorePkg.default || StorePkg
-// const settingsStore = new Store({ name: 'settings' })
-// const windowStore = new Store({ name: 'window' })
-// const store = new Store();
+import { createWindows } from './windowUtils'
 // 控制台管理员密码
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD  || 'admin123'
 
@@ -50,7 +44,6 @@ const refreshMainWindow = () => {
   }
   addLog2Vue('刷新成功...')
   mainWindow.webContents.reload()
-  // void runInitialization()
 }
 
 const promptAdminPassword = (): Promise<string | null> => {
@@ -215,125 +208,6 @@ function resetWindowsSizeAndPosition(): void {
   mainWindow?.setPosition(position[0], position[1])
 }
 
-// 创建关于窗口
-function createAboutWindow(): void {
-  // 如果窗口已存在且未销毁，则聚焦到该窗口
-  if (aboutWindow && !aboutWindow.isDestroyed()) {
-    aboutWindow.focus()
-    return
-  }
-
-  // 创建新窗口
-  aboutWindow = new BrowserWindow({
-    width: 1000,
-    height: 900,
-    show: false,
-    autoHideMenuBar: true,
-    resizable: true,
-    icon:join(__dirname, getIconPaht()),
-    minimizable: true,
-    maximizable: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
-      devTools: true,
-      contextIsolation: true
-    },
-    parent: mainWindow || undefined, // 设置父窗口
-    modal: false // 非模态窗口
-  })
-
-  // 窗口准备好后显示
-  aboutWindow.once('ready-to-show', () => {
-    aboutWindow?.show()
-  })
-
-  // 窗口关闭时清理引用
-  aboutWindow.on('closed', () => {
-    aboutWindow = null
-  })
-
-  // 加载URL，使用hash路由
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    aboutWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}#/about`)
-  } else {
-    // 生产环境：先加载文件，然后在页面加载完成后导航到 about 页面
-    aboutWindow.loadFile(join(__dirname, '../renderer/index.html'))
-    aboutWindow.webContents.once('did-finish-load', () => {
-      aboutWindow?.webContents.executeJavaScript(`
-        if (window.location.hash !== '#/about') {
-          window.location.hash = '#/about'
-        }
-      `)
-    })
-  }
-
-  // 开发模式下打开开发者工具
-  if (is.dev) {
-    aboutWindow.webContents.openDevTools()
-  }
-}
-
-// 创建设置窗口
-function createSettingsWindow(): void {
-  // 如果窗口已存在且未销毁，则聚焦到该窗口
-  if (settingsWindow && !settingsWindow.isDestroyed()) {
-    settingsWindow.focus()
-    return
-  }
-
-  // 创建新窗口
-  settingsWindow = new BrowserWindow({
-    width: 1000,
-    height: 800,
-    show: false,
-    icon:join(__dirname, getIconPaht()),
-    autoHideMenuBar: true,
-    resizable: true,
-    minimizable: true,
-    maximizable: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
-      devTools: true,
-      contextIsolation: true
-    },
-    parent: mainWindow || undefined,
-    modal: false
-  })
-
-  // 窗口准备好后显示
-  settingsWindow.once('ready-to-show', () => {
-    settingsWindow?.show()
-  })
-
-  // 窗口关闭时清理引用
-  settingsWindow.on('closed', () => {
-    settingsWindow = null
-  })
-
-  // 加载URL，使用hash路由
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    settingsWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}#/settings`)
-  } else {
-    settingsWindow.loadFile(join(__dirname, '../renderer/index.html'))
-    settingsWindow.webContents.once('did-finish-load', () => {
-      settingsWindow?.webContents.executeJavaScript(`
-        if (window.location.hash !== '#/settings') {
-          window.location.hash = '#/settings'
-        }
-      `)
-    })
-  }
-
-  // 开发模式下打开开发者工具
-  if (is.dev) {
-    settingsWindow.webContents.openDevTools()
-  }
-}
-
 
 // 在浏览器中打开
 function openInBrowser(): void {
@@ -401,16 +275,24 @@ function createMenu(): void {
     },
     {
       label: '设置',
-      click: () => {
-        // 创建新窗口显示设置页面
-        createSettingsWindow()
+      click: async () => {
+        // 如果窗口已存在且未销毁，则聚焦到该窗口
+        if (settingsWindow && !settingsWindow.isDestroyed()) {
+          settingsWindow.focus()
+          return
+        }
+        settingsWindow = await createWindows('设置',mainWindow)
       }
     },
     {
       label: '关于',
-      click: () => {
-        // 创建新窗口显示关于页面
-        createAboutWindow()
+      click: async () => {
+        // 如果窗口已存在且未销毁，则聚焦到该窗口
+        if (aboutWindow && !aboutWindow.isDestroyed()) {
+          aboutWindow.focus()
+          return
+        }
+        aboutWindow = await createWindows('关于',mainWindow)
       }
     }
   ]
@@ -586,7 +468,7 @@ app.whenReady().then(async () => {
   mainWindow?.on('ready-to-show', async () => {
     mainWindow?.setTitle(import.meta.env.VITE_APP_NAME || '应用标题');
     mainWindow?.show()
-    await runInitialization()
+    // await runInitialization()
   })
 
 
@@ -617,20 +499,16 @@ app.whenReady().then(async () => {
     })
     downloadProgressBuffer = []
   })
-
-  // 监听关闭关于窗口的请求
-  ipcMain.on('close-about-window', () => {
-    if (aboutWindow && !aboutWindow.isDestroyed()) {
+  // 监听关闭设置窗口的请求
+  ipcMain.on('close-window', (_event,name:string) => {
+    if (name ==='设置' && settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.close()
+    }
+    if (name ==='关于' && aboutWindow && !aboutWindow.isDestroyed()) {
       aboutWindow.close()
     }
   })
 
-  // 监听关闭设置窗口的请求
-  ipcMain.on('close-settings-window', () => {
-    if (settingsWindow && !settingsWindow.isDestroyed()) {
-      settingsWindow.close()
-    }
-  })
 
   // 保存设置
   ipcMain.on('get-conf-value',  (_event, conf: { key: string,defaultValue?: any,nameSpace?:string}) => {

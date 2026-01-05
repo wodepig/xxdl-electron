@@ -1,6 +1,10 @@
-<script setup lang="ts">
-import { ref, onMounted, onUnmounted, reactive, nextTick ,computed} from 'vue'
-import VersionInfo from '../components/VersionInfo.vue'
+<script lang="ts" setup>
+import { ref, reactive, onMounted, computed } from 'vue'
+// 预加载 assets/image 下的所有图片，确保打包后也包含
+const imageAssets = import.meta.glob('../assets/image/*', {
+  eager: true,
+  import: 'default'
+}) as Record<string, string>
 type SystemInfo = {
   platform: string
   arch: string
@@ -13,41 +17,12 @@ type VersionInfo = {
   chrome: string
   node: string
 }
-const appInfo = ref({
-  name: import.meta.env.VITE_APP_NAME || '应用名称',
-  icon: import.meta.env.VITE_APP_ICON || '../assets/image/electron.svg',
-  desc: import.meta.env.VITE_APP_DESC || '应用描述',
-  home: import.meta.env.VITE_APP_HOME || '应用首页',
+// 计算图片 URL（支持通过 VITE_APP_ICON 切换）
+const logoIconUrl = computed(() => {
+  const url = resolveIconFromEnv()
+  console.log('logoIconUrl ->', url)
+  return url
 })
-const systemInfo = reactive<SystemInfo>({
-  platform: '未知',
-  arch: '未知',
-  language: '未知'
-})
-
-const versions = reactive<VersionInfo>({
-  app: '1.0.0',
-  electron: 'N/A',
-  chrome: 'N/A',
-  node: 'N/A'
-})
-
-type DownloadProgressPayload = {
-  visible: boolean
-  progress: number
-  isDownloading: boolean
-}
-
-const logs = ref<string[]>([])
-const logContainer = ref<HTMLDivElement | null>(null)
-const downloadProgress = ref(0)
-const isDownloading = ref(false)
-const showDownloadCard = ref(false)
-// 预加载 assets/image 下的所有图片，确保打包后也包含
-const imageAssets = import.meta.glob('../assets/image/*', {
-  eager: true,
-  import: 'default'
-}) as Record<string, string>
 
 const resolveIconFromEnv = (): string => {
   const raw = import.meta.env.VITE_APP_ICON?.trim() || ''
@@ -63,7 +38,7 @@ const resolveIconFromEnv = (): string => {
   ]
 
   for (const key of Object.keys(imageAssets)) {
-    if (candidates.some(c => key.endsWith(c.replace('..', '')))) {
+    if (candidates.some((c) => key.endsWith(c.replace('..', '')))) {
       return imageAssets[key]
     }
   }
@@ -71,63 +46,46 @@ const resolveIconFromEnv = (): string => {
   // 找不到就退回默认图
   return new URL('../assets/image/icon.png', import.meta.url).href
 }
-
-// 计算图片 URL（支持通过 VITE_APP_ICON 切换）
-const logoIconUrl = computed(() => {
-  const url = resolveIconFromEnv()
-  console.log('logoIconUrl ->', url)
-  return url
+const systemInfo = reactive<SystemInfo>({
+  platform: '未知',
+  arch: '未知',
+  language: '未知'
 })
-const autoScroll = (): void => {
-  nextTick(() => {
-    if (logContainer.value) {
-      logContainer.value.scrollTop = logContainer.value.scrollHeight
-    }
-  })
-}
 
+const versions = reactive<VersionInfo>({
+  app: '1.0.0',
+  electron: 'N/A',
+  chrome: 'N/A',
+  node: 'N/A'
+})
+const appInfo = ref({
+  name: import.meta.env.VITE_APP_NAME || '应用名称',
+  icon: import.meta.env.VITE_APP_ICON || '应用图标',
+  desc: import.meta.env.VITE_APP_DESC || '应用描述',
+  home: import.meta.env.VITE_APP_HOME || '应用首页'
+})
 const appendLog = (message: string): void => {
-  logs.value.push(message)
-  autoScroll()
+  // logs.value.push(message)
+  // autoScroll()
 }
-
-const getLogClass = (log: string): string => {
-  if (log.includes('失败') || log.includes('错误') || log.includes('注意')) {
-    return 'error'
-  }
-  if (log.includes('完成') || log.includes('成功')) {
-    return 'success'
-  }
-  const infoText = ['开始','检查','下载','可用']
-  if (infoText.filter(item => log.includes(item)).length > 0) {
-    return 'info'
-  }
-  return 'default'
-}
-
 const hydrateSystemInfo = (): void => {
   try {
-
-
-    // 延迟执行确保 preload 脚本已加载
     setTimeout(() => {
       if (window.api?.getSystemInfo) {
         const info = window.api.getSystemInfo()
         systemInfo.platform = info.platform || '未知'
         systemInfo.arch = info.arch || '未知'
         systemInfo.language = info.language || '未知'
-        console.log('系统信息已加载:', info)
       } else {
         console.warn('window.api.getSystemInfo 不可用')
       }
 
       if (window.api?.getVersions) {
         const vers = window.api.getVersions()
-        versions.app =     vers.app  || '1'
+        versions.app = vers.app || '1'
         versions.electron = vers.electron || 'N/A'
         versions.chrome = vers.chrome || 'N/A'
         versions.node = vers.node || 'N/A'
-        console.log('版本信息已加载:', versions)
       } else {
         console.warn('window.api.getVersions 不可用')
       }
@@ -137,122 +95,61 @@ const hydrateSystemInfo = (): void => {
     appendLog('错误: 无法获取系统或版本信息')
   }
 }
-
-const handleLogUpdate = (log: string): void => {
-  appendLog(log)
-}
-
-let logListenerAttached = false
-
-const attachLogListener = (): void => {
-  if (logListenerAttached) return
-
-  if (!window.api?.onUpdateLog) {
-    appendLog('错误: 无法连接到主进程日志接口')
-    return
-  }
-
-  window.api.onUpdateLog(handleLogUpdate)
-  logListenerAttached = true
-
-  if (window.electron?.ipcRenderer?.send) {
-    window.electron.ipcRenderer.send('renderer-ready')
-    appendLog('日志监听器已连接')
-  } else {
-    appendLog('警告: 无法通知主进程渲染进程状态')
-  }
-}
-
-const detachLogListener = (): void => {
-  if (!logListenerAttached) return
-  window.api?.removeUpdateLogListener?.()
-  logListenerAttached = false
-}
-
-let downloadListenerAttached = false
-
-const handleDownloadProgress = (payload: DownloadProgressPayload): void => {
-  if (typeof payload.progress === 'number') {
-    downloadProgress.value = Math.max(0, Math.min(100, payload.progress))
-  }
-  isDownloading.value = !!payload.isDownloading
-  showDownloadCard.value = !!payload.visible
-  if (!payload.visible) {
-    setTimeout(() => {
-      showDownloadCard.value = false
-      isDownloading.value = false
-      downloadProgress.value = 0
-    }, 500)
-  }
-}
-
-const attachDownloadListener = (): void => {
-  if (downloadListenerAttached) return
-  const registerDownloadProgress = window.api?.onDownloadProgress
-  if (registerDownloadProgress) {
-    registerDownloadProgress(handleDownloadProgress)
-    downloadListenerAttached = true
-  } else {
-    console.warn('window.api.onDownloadProgress 不可用')
-  }
-}
-
-const detachDownloadListener = (): void => {
-  if (!downloadListenerAttached) return
-  const removeListener = window.api?.removeDownloadProgressListener
-  if (removeListener) {
-    removeListener()
-  }
-  downloadListenerAttached = false
-}
-
 onMounted(() => {
-  appendLog('应用启动中...')
   hydrateSystemInfo()
-  appendLog('系统信息加载完成')
-  attachLogListener()
-  attachDownloadListener()
-  // 根据需要显示下载卡片
-  // triggerDownload()
-})
-
-onUnmounted(() => {
-  detachLogListener()
-  detachDownloadListener()
 })
 </script>
 
 <template>
-  <div class="app-container">
+  <div>
+<!--    <header class="app-header">-->
+<!--      <div class="brand">-->
+<!--        &lt;!&ndash; <div style="object-position: bottom;"> &ndash;&gt;-->
+<!--        <img style="object-fit: contain; padding: 4px" alt="logo" class="logo" :src="logoIconUrl" />-->
 
-  <VersionInfo>
-    你好你好
-  </VersionInfo>
+<!--        &lt;!&ndash; </div> &ndash;&gt;-->
+<!--        <div>-->
+<!--          <h1>{{ appInfo.name }}</h1>-->
+<!--          <p>{{ appInfo.desc }}</p>-->
+<!--        </div>-->
+<!--      </div>-->
+<!--    </header>-->
+    <slot></slot>
     <main class="app-main">
-
-      <section class="card log-card">
-        <div class="section-header">
-          <h2>应用初始化日志</h2>
-          <!-- <button @click="appendLog('1')">点我添加日志</button> -->
-          <div v-if="showDownloadCard" class="progress-inline">
-            <span class="progress-text">{{ downloadProgress }}%</span>
-            <div class="progress-bar-inline">
-              <div
-                class="progress-fill"
-                :style="{ width: downloadProgress + '%' }"
-                :class="{ animated: isDownloading }"
-              ></div>
-            </div>
+      <section class="info-grid">
+        <div class="card system-info-card">
+          <h2>系统信息</h2>
+          <div class="info-item">
+            <strong>平台:</strong>
+            <span>{{ systemInfo.platform }}</span>
+          </div>
+          <div class="info-item">
+            <strong>架构:</strong>
+            <span>{{ systemInfo.arch }}</span>
+          </div>
+          <div class="info-item">
+            <strong>语言:</strong>
+            <span>{{ systemInfo.language }}</span>
           </div>
         </div>
-        <div class="log-container" ref="logContainer">
-          <div
-            v-for="(log, index) in logs"
-            :key="index"
-            class="log-entry"
-            :class="getLogClass(log)"
-          >
-            {{ log }}
+
+        <div class="card version-info-card">
+          <h2>版本信息</h2>
+          <div class="info-item">
+            <strong>应用版本:</strong>
+            <span>{{ versions.app }}</span>
+          </div>
+          <div class="info-item">
+            <strong>Electron:</strong>
+            <span>{{ versions.electron }}</span>
+          </div>
+          <div class="info-item">
+            <strong>Node:</strong>
+            <span>{{ versions.node }}</span>
+          </div>
+          <div class="info-item">
+            <strong>Chrome:</strong>
+            <span>{{ versions.chrome }}</span>
           </div>
         </div>
       </section>
@@ -318,7 +215,9 @@ onUnmounted(() => {
   border-radius: 14px;
   padding: 24px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 .card:hover {
@@ -523,4 +422,3 @@ onUnmounted(() => {
   }
 }
 </style>
-
