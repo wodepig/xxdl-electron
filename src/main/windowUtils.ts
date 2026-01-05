@@ -1,16 +1,23 @@
 // 窗口工具类
-import { app, shell, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
+import { BrowserWindow } from 'electron'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
 import { is } from '@electron-toolkit/utils'
 // 创建窗口
-export const createWindows =async  (name: string, parent?: BrowserWindow | null) =>{
+export const createWindows =async  (name: string,selfWindows: BrowserWindow | null, parent?: BrowserWindow | null) =>{
+  if (selfWindows && !selfWindows.isDestroyed()) {
+    selfWindows.focus()
+    return selfWindows
+  }
   let pageUrl = '/about'
   if (name ==='设置'){
     pageUrl = '/settings'
   }
   if (name ==='版本'){
     pageUrl = '/version'
+  }
+  if (name ==='日志'){
+    pageUrl = '/log'
   }
   const defaultIcon = join(__dirname, getIconPath())
   // 创建新窗口

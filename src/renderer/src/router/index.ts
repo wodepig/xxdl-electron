@@ -22,6 +22,11 @@ const router = createRouter({
       path: '/version',
       name: 'version',
       component: () => import('../components/VersionInfo.vue')
+    },
+    {
+      path: '/log',
+      name: 'log',
+      component: () => import('../components/LogList.vue')
     }
   ]
 })

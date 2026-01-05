@@ -33,6 +33,7 @@ export let isRendererReady = false
 
 let mainWindow: BrowserWindow | null = null
 let aboutWindow: BrowserWindow | null = null
+let logWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
 let initializationStarted = false
 
@@ -276,23 +277,18 @@ function createMenu(): void {
     {
       label: '设置',
       click: async () => {
-        // 如果窗口已存在且未销毁，则聚焦到该窗口
-        if (settingsWindow && !settingsWindow.isDestroyed()) {
-          settingsWindow.focus()
-          return
-        }
-        settingsWindow = await createWindows('设置',mainWindow)
+        settingsWindow = await createWindows('设置',settingsWindow,mainWindow)
       }
     },
     {
       label: '关于',
       click: async () => {
-        // 如果窗口已存在且未销毁，则聚焦到该窗口
-        if (aboutWindow && !aboutWindow.isDestroyed()) {
-          aboutWindow.focus()
-          return
-        }
-        aboutWindow = await createWindows('关于',mainWindow)
+        aboutWindow = await createWindows('关于',aboutWindow,mainWindow)
+      }
+    },{
+      label: '日志',
+      click: async () => {
+        logWindow = await createWindows('日志',logWindow,mainWindow)
       }
     }
   ]

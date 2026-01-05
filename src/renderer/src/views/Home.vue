@@ -224,7 +224,9 @@ onUnmounted(() => {
 
 <template>
   <div class="app-container">
-
+  <div class="bg-red-400">
+    样式测试
+  </div>
   <VersionInfo>
     你好你好
   </VersionInfo>
