@@ -415,7 +415,7 @@ const deleteDir = async (folderName: string) => {
 // 向 Vue 发送日志
 export const addLog2Vue = (log: string): void => {
     const mainWindow = getMainWindow()
-    console.log('addLog2Vue', log);
+    // console.log('addLog2Vue', log);
     // 如果渲染进程还没准备好，将日志添加到缓冲区
     if (!isRendererReady) {
         logBuffer.push(log)

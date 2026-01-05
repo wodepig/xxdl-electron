@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, reactive, nextTick ,computed} from 'vue'
 import VersionInfo from '../components/VersionInfo.vue'
+import LogList from '../components/LogList.vue'
 type SystemInfo = {
   platform: string
   arch: string
@@ -89,6 +90,9 @@ const autoScroll = (): void => {
 const appendLog = (message: string): void => {
   logs.value.push(message)
   autoScroll()
+}
+const appendLog2 = (): void => {
+  console.log('主页点击按钮了')
 }
 
 const getLogClass = (log: string): string => {
@@ -227,36 +231,22 @@ onUnmounted(() => {
   <div class="bg-red-400">
     样式测试
   </div>
+    <button @click="appendLog2">点我添加日志</button>
   <VersionInfo>
     你好你好
   </VersionInfo>
+
     <main class="app-main">
 
       <section class="card log-card">
         <div class="section-header">
           <h2>应用初始化日志</h2>
           <!-- <button @click="appendLog('1')">点我添加日志</button> -->
-          <div v-if="showDownloadCard" class="progress-inline">
-            <span class="progress-text">{{ downloadProgress }}%</span>
-            <div class="progress-bar-inline">
-              <div
-                class="progress-fill"
-                :style="{ width: downloadProgress + '%' }"
-                :class="{ animated: isDownloading }"
-              ></div>
-            </div>
+          <div class="w-full h-full">
+            <LogList></LogList>
           </div>
         </div>
-        <div class="log-container" ref="logContainer">
-          <div
-            v-for="(log, index) in logs"
-            :key="index"
-            class="log-entry"
-            :class="getLogClass(log)"
-          >
-            {{ log }}
-          </div>
-        </div>
+
       </section>
     </main>
   </div>

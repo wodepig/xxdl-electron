@@ -1,8 +1,9 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
 import { join } from 'path'
-
+import log from 'electron-log/main';
+import {LogFileWatcher} from './log-utils'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import {  startInitialize, cleanupServerProcess,openBrowserWithType, addLog2Vue,sleep } from './utils'
+import {  startInitialize, cleanupServerProcess,openBrowserWithType, addLog2Vue,sleep,getAppDir } from './utils'
 import icon from '../../resources/icon.png?asset'
 import {getConfValue, setConfValue,clearConf} from '../main/conf'
 import { createWindows } from './windowUtils'
@@ -34,6 +35,7 @@ export let isRendererReady = false
 let mainWindow: BrowserWindow | null = null
 let aboutWindow: BrowserWindow | null = null
 let logWindow: BrowserWindow | null = null
+let logWatcher: LogFileWatcher | null = null;
 let settingsWindow: BrowserWindow | null = null
 let initializationStarted = false
 
@@ -209,7 +211,28 @@ function resetWindowsSizeAndPosition(): void {
   mainWindow?.setPosition(position[0], position[1])
 }
 
+function initLogConfig(){
+  // 渲染进程中的console.log都会被捕获 https://github.com/megahertz/electron-log/blob/master/docs/initialize.md
+  log.initialize({ spyRendererConsole: true });
+  log.transports.file.resolvePathFn = () => join(getAppDir(),'logs/main.log')
+  // log.transports.file.maxSize = 124
+  log.warn('日志配置初始化成功')
+}
 
+// 记录日志
+function addLog(msg: string, type: 'info' | 'error' | 'warning' | 'debug' = 'info'): void {
+  if (type === 'info') {
+    log.info(msg)
+  } else if (type === 'error') {
+    log.error(msg)
+  } else if (type === 'warning') {
+    log.warn(msg)
+  } else if (type === 'debug') {
+    log.debug(msg)
+  }else  {
+    log.log(msg)
+  }
+}
 // 在浏览器中打开
 function openInBrowser(): void {
   // const nodeStart = store.get('nodeStart', 'false') as string
@@ -289,6 +312,9 @@ function createMenu(): void {
       label: '日志',
       click: async () => {
         logWindow = await createWindows('日志',logWindow,mainWindow)
+        logWindow.on('closed', () => {
+          logWatcher?.cleanup()
+        })
       }
     }
   ]
@@ -455,6 +481,8 @@ async function showMessageBox(message: string, type: 'info' | 'error' | 'warning
 app.whenReady().then(async () => {
   // 跳过下载更新的地址
   // app.commandLine.appendSwitch('proxy-bypass-list', '*.toolsetlink.com;*.qq.com')
+  // 初始化日志配置
+  initLogConfig()
   // 创建菜单
   createMenu()
 
@@ -480,7 +508,52 @@ app.whenReady().then(async () => {
 
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
+  // 添加日志
+  ipcMain.on('add-log', (_event,log:string, type:'info' | 'error' | 'warning' | 'debug' = 'info') => {
+    addLog(log,type)
+  })
+  ipcMain.on('log-list-close', async () => {
+    if (logWatcher) {
+      logWatcher.cleanup();
+    }
+  })
+  // 监听日志列表准备好的信号
+  ipcMain.on('log-list-ready', async () => {
+    console.log('日志页面准备好接受数据了')
+    isRendererReady = true
+    // 先清理旧的监听（避免重复监听）
+    if (logWatcher) {
+      logWatcher.cleanup();
+    }
+    // 创建新的监听器实例
+    logWatcher = new LogFileWatcher(log.transports.file.getFile().path)
 
+    // 监听日志就绪事件（前50条日志）
+    logWatcher.on('logReady', (first50Logs) => {
+      first50Logs.forEach((log:string) => {addLog2Vue(log)})
+      console.log('前50条日志：', first50Logs.length);
+      // 这里可以将日志渲染到页面上，比如发送到Electron渲染进程
+      // ipcMain.send('render-logs', first50Logs);
+    });
+
+    // 监听新增日志事件
+    logWatcher.on('newLogs', (newLogs) => {
+      newLogs.forEach((log:string) => {addLog2Vue(log)})
+      // addLog2Vue(newLogs)
+      console.log('实时新增日志：', newLogs.length);
+      // 发送到渲染进程更新页面
+      // ipcMain.send('render-new-logs', newLogs);
+    });
+
+    // 监听错误事件
+    logWatcher.on('error', (errorMsg) => {
+      addLog2Vue(errorMsg)
+      console.error('日志监听错误：', errorMsg);
+    });
+
+    // 初始化监听
+     await logWatcher.initWatch();
+  })
   // 监听渲染进程准备好的信号
   ipcMain.on('renderer-ready', () => {
     console.log('Renderer is ready, sending buffered logs')
@@ -594,6 +667,7 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
+
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.

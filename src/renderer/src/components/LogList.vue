@@ -1,21 +1,41 @@
 <script lang="ts" setup>
-import { ref, reactive, nextTick } from 'vue'
-
-type LogType = 'info' | 'success' | 'warn' | 'error'
+import { ref, reactive, nextTick, onMounted, onBeforeUnmount, onUnmounted } from 'vue'
+type LogType = 'info' | 'debug' | 'warn' | 'error'
 
 interface ParsedLog {
   time: string
   type: LogType
   message: string
 }
-
+let logListenerAttached = false
 const MAX_LOGS = 500
 const logs = reactive<ParsedLog[]>([])
 const containerRef = ref<HTMLDivElement | null>(null)
 const hover = ref(false)
-const LOG_REG = /^\[(.*?)\]\s*\[(info|success|warn|error)\]\s*(.*)$/
+const LOG_REG = /^\[(.*?)\]\s*\[(info|debug|warn|error)\]\s*(.*)$/
 
-function addLog(raw: string) {
+const initLogList = () => {
+  if (window.electron?.ipcRenderer?.send) {
+    window.electron.ipcRenderer.send('log-list-ready')
+    console.debug('日志监听器已连接')
+  } else {
+    console.debug('警告: 无法通知主进程渲染进程状态')
+  }
+}
+// 用来接受主进程发送的日志
+const attachLogListener = (): void => {
+  if (logListenerAttached) return
+
+  if (!window.api?.onUpdateLog) {
+    console.warn('错误: 无法连接到主进程日志接口')
+    return
+  }
+
+  window.api.onUpdateLog(addLog)
+  logListenerAttached = true
+}
+// 添加日志到日志列表
+const addLog = (raw: string): void => {
   let parsed: ParsedLog
   const match = raw.match(LOG_REG)
   if (match) {
@@ -25,7 +45,8 @@ function addLog(raw: string) {
   }
 
   logs.push(parsed)
-
+  // console.log('我来自渲染>>>')
+  // console.debug('我来自渲染>>>')
   // 超过最大条数限制（仅当没有 hover）
   if (!hover.value && logs.length > MAX_LOGS) logs.shift()
 
@@ -39,11 +60,18 @@ function scrollToBottom() {
 }
 
 // 测试日志
-setInterval(() => {
-  const types: LogType[] = ['info', 'success', 'warn', 'error']
-  const type = types[Math.floor(Math.random() * types.length)]
-  addLog(`[${new Date().toISOString()}] [${type}] 测试日志 ${Math.floor(Math.random() * 100)}`)
-}, 1200)
+// setInterval(() => {
+//   const types: LogType[] = ['info', 'success', 'warn', 'error']
+//   const type = types[Math.floor(Math.random() * types.length)]
+//   // window.electron.ipcRenderer.send('add-log','我来自渲染进程','debug')
+//   // log.info('我来自渲染进程')
+//
+//   addLog(`[${new Date().toISOString()}] [${type}] 测试日志 ${Math.floor(Math.random() * 100)}`)
+// }, 1200)
+onMounted(() => {
+  initLogList()
+  attachLogListener()
+})
 </script>
 
 <template>
@@ -51,9 +79,7 @@ setInterval(() => {
     <!-- 日志面板 -->
     <div
       ref="containerRef"
-      class="w-full h-full bg-slate-800/90 rounded-xl p-4
-             font-mono text-sm text-slate-200 overflow-y-auto shadow-xl
-             backdrop-blur-sm flex flex-col select-text transition-all"
+      class="w-full h-full bg-slate-800/90 rounded-xl p-4 font-mono text-sm text-slate-200 overflow-y-auto shadow-xl backdrop-blur-sm flex flex-col select-text transition-all"
       @mouseenter="hover = true"
       @mouseleave="hover = false"
     >
@@ -77,9 +103,7 @@ setInterval(() => {
     <!-- 右下角滚到底部按钮（加大版） -->
     <button
       @click="scrollToBottom"
-      class="absolute bottom-6 right-6 bg-slate-700/80 hover:bg-slate-600/90
-             text-white p-4 text-xl rounded-full shadow-xl flex items-center justify-center
-             transition-colors"
+      class="absolute bottom-6 right-6 bg-slate-700/80 hover:bg-slate-600/90 text-white p-4 text-xl rounded-full shadow-xl flex items-center justify-center transition-colors"
       title="滚到底部"
     >
       ⬇️
