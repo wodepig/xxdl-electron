@@ -20,7 +20,12 @@ export class LogFileWatcher extends EventEmitter {
   async initWatch(): Promise<Array<string>> {
     try {
       // 1. 先读取前50条日志并返回
-      const first50Logs = await this.readLastNLogs(50);
+      let  first50Logs:string[] =[]
+      try {
+         first50Logs = await this.readLastNLogs(50);
+      }catch (err){
+        console.log('读取日志错误...')
+      }
       this.emit('logReady', first50Logs); // 触发日志就绪事件
 
       // 2. 获取当前文件大小（用于后续监听新增内容）
@@ -55,7 +60,18 @@ export class LogFileWatcher extends EventEmitter {
    */
   private async readLastNLogs(n = 50): Promise<string[]> {
     return new Promise((resolve, reject) => {
+      // 1️⃣ 文件不存在 → 直接返回空
+      if (!fs.existsSync(this.filePath)) {
+        resolve([])
+        return
+      }
+
       fs.stat(this.filePath, (err, stats) => {
+        if (err || stats.size === 0) {
+          // 2️⃣ 文件为空 or stat 失败 → 空数组
+          resolve([])
+          return
+        }
         if (err) {
           reject(err)
           return
@@ -65,7 +81,10 @@ export class LogFileWatcher extends EventEmitter {
         const READ_SIZE = 32 * 1024 // 32KB，够 50 行日志用
         const start = Math.max(0, fileSize - READ_SIZE)
         const length = fileSize - start
-
+        if (length <= 0) {
+          resolve([])
+          return
+        }
         fs.open(this.filePath, 'r', (err, fd) => {
           if (err) {
             reject(err)

@@ -43,13 +43,13 @@ const getAppInfos = () =>{
   }
 }
 // 获取系统版本信息
-const getSystemVersions = () => {
-  console.log('作者:',import.meta.env.VITE_AUTHOR_NAME)
+const getSystemVersions = async () => {
+  const appVersion = await api.getConfValue({key:'distVersion',defaultValue:'1'})
   const resp = {
     platform: process.platform,
     arch: process.arch,
     language: navigator.language,
-    appVersion:  api.getConfValue({key:'appVersion',defaultValue:'1'}), // 可以从package.json获取实际版本
+    appVersion:  appVersion, // 可以从package.json获取实际版本
     electronVersion: process.versions.electron,
     chromeVersion: process.versions.chrome,
     nodeVersion: process.versions.node
@@ -73,14 +73,27 @@ const api = {
     ipcRenderer.removeAllListeners('log-message')
   },
 
+  // 监听最新日志
+  onLatestLog: (callback: (log: string) => void) => {
+    ipcRenderer.on('latest-log', (_event, value) => {
+      callback(value)
+    })
+  },
+
+  removeLatestLogListener: () => {
+    ipcRenderer.removeAllListeners('latest-log')
+  },
+
   // 添加获取系统信息和版本信息的方法
-  getSystemVersions: getSystemVersions,
+  getSystemVersions: ()=>{
+    return getSystemVersions()
+  },
   // 获取应用的信息和作者信息
   getAppInfos: getAppInfos,
 
 
   getConfValue: (conf:{key: string,defaultValue?: any,nameSpace?:string}) => {
-    return ipcRenderer.send('get-conf-value', conf)
+    return ipcRenderer.invoke('get-conf-value', conf)
   },
   // 添加导航监听
   onNavigate: (callback: (path: string) => void) => {

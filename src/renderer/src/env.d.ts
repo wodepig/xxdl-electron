@@ -62,6 +62,7 @@ interface Window {
     removeUpdateLogListener?: () => void
     getSystemVersions?: () => SystemVersion
     getAppInfos?: () => AppInfo
+    onLatestLog?: (callback:(log:string) => void) => void
     onNavigate?: (callback: (path: string) => void) => void
     removeNavigateListener?: () => void
     onDownloadProgress?: (callback: (payload: DownloadProgressPayload) => void) => void

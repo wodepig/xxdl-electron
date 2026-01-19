@@ -22,6 +22,8 @@ type Settings = {
 type RendererAPI = {
   onUpdateLog: (callback: (log: string) => void) => void
   removeUpdateLogListener: () => void
+  onLatestLog: (callback: (log: string) => void) => void
+  removeLatestLogListener: () => void
   getSystemInfo: () => SystemInfo
   getVersions: () => VersionInfo
   onNavigate: (callback: (path: string) => void) => void

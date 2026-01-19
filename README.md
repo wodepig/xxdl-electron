@@ -38,11 +38,15 @@ VITE_ADMIN_PASSWORD=打开开发者工具的密码, 默认admin123
 AI写的
 
 ## 打包
+1. 创建配置文件
+使用[gen-env-config.html](gen-env-config.html)生成配置文件, 并放到.env.demo中
+2. 打包
 pnpm build:win 打包windows下的安装包
-"build:win:mode": "node scripts/build-with-mode.js shein win"
-打包.env.shein的环境变量. 会在打包前执行scripts/build-with-mode.js替换electron-builder.yml的部分字段然后打包成zip包
+"build:win:mode": "node scripts/build-with-mode.js demo win"
+打包.env.demo的环境变量. 会在打包前执行scripts/build-with-mode.js替换electron-builder.yml的部分字段然后打包成zip包
 相关的配置在electron-builder.yml中.默认打包为zip压缩包. 下载后解压即可使用
-
+3. mini-electron
+在electron-builder.yml中添加electronDist: D:\\soft\\electron
 compression: maximum会花费很长时间构建(比normal多3倍的时间), 但打包后的zip包大小没变化
 ## 打包后
 1. 删除了多余的语言

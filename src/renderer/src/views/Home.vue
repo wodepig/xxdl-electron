@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted,computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { resolveIconFromEnv } from '@renderer/utils/icon-utils'
 const appName = ref('')
 const appDesc = ref('')
 const appIcon = ref('')
+const nowMsg = ref('正在初始化...')
 const progress = ref(0)
 const authorInfo = ref<AuthorInfo>({})
 // 计算图片 URL（支持通过 VITE_AUTHOR_WX_IMG 切换）
@@ -28,15 +29,39 @@ const getAppInfo = (): void => {
       } else {
         console.warn('window.api.getSystemInfo 不可用')
       }
-
-
     }, 200)
   } catch (error) {
     console.error('获取系统信息失败:', error)
   }
 }
+
+// 解析日志消息
+const parseLogMessage = (raw: string): string => {
+  // 日志格式: [时间] [类型] 消息
+  const LOG_REG = /^\[(.*?)\]\s*\[(info|debug|warn|error)\]\s*(.*)$/
+  const match = raw.match(LOG_REG)
+  if (match) {
+    return match[3].slice(0,30) // 返回消息部分
+  }
+  return raw // 如果不匹配格式，返回原始消息
+}
+
+// 监听最新日志
+const attachLatestLogListener = (): void => {
+  if (!window.api?.onLatestLog) {
+    console.warn('onLatestLog API 不可用')
+    return
+  }
+
+  window.api.onLatestLog((log: string) => {
+    nowMsg.value = parseLogMessage(log)
+  })
+}
+
 onMounted(() => {
   getAppInfo()
+  attachLatestLogListener()
+
   const timer = setInterval(() => {
     if (progress.value >= 100) {
       clearInterval(timer)
@@ -45,39 +70,42 @@ onMounted(() => {
     }
   }, 90)
 })
+
+onBeforeUnmount(() => {
+  // 清理日志监听器
+  if (window.api?.removeLatestLogListener) {
+    window.api.removeLatestLogListener()
+  }
+})
 </script>
-<!--
-颜色:
-FFEB3B-FF2E63
-FFEB3B-FF2E63
--->
+
 <template>
-  <div class="fixed inset-0 overflow-hidden bg-[#F6F4EF] text-black">
-    <!-- 不规则黄色大块 -->
+  <div class="fixed inset-0 overflow-hidden bg-[#FAF9F6] text-gray-900">
+    <!-- 柔和的装饰块 -->
     <div
       class="absolute -top-[20vh] -left-[20vw] w-[140vw] h-[70vh]
-             bg-[#FFEB3B] rotate-[-8deg]"
+             bg-[#B8D4E8] rotate-[-8deg]"
     />
 
-    <!-- 红色方块（右下角） + 漂浮动画 -->
+    <!-- 橙色装饰方块（右下角） + 漂浮动画 -->
     <div
       class="absolute bottom-[-40vh] right-[-15vw]
              w-[80vw] max-w-[900px] h-[70vh]
-             bg-[#FF2E63] rotate-[12deg]
+             bg-[#FFB6A3] rotate-[12deg]
              animate-[floatRed_6s_ease-in-out_infinite]"
     />
 
     <!-- 右上角符号替换 -->
-    <div class="absolute top-8 right-8 text-6xl font-black text-black opacity-70">
+    <div class="absolute top-8 right-8 text-6xl font-black text-gray-900 opacity-50">
       🛠️
     </div>
 
     <!-- 点阵装饰 -->
-    <div class="absolute top-24 left-24 grid grid-cols-6 gap-2 opacity-30">
+    <div class="absolute top-24 left-24 grid grid-cols-6 gap-2 opacity-20">
       <span
         v-for="i in 36"
         :key="i"
-        class="w-1.5 h-1.5 bg-black rounded-full"
+        class="w-1.5 h-1.5 bg-gray-900 rounded-full"
       />
     </div>
 
@@ -88,39 +116,39 @@ FFEB3B-FF2E63
         <!-- Logo -->
         <div
           class="inline-flex items-center justify-center
-                 w-20 h-20 bg-black text-white
-                 text-3xl font-black tracking-tight
+                 w-20 h-20 bg-gray-900 text-white
+                 text-3xl font-black tracking-tight border-4 border-gray-900
                  animate-[drift_6s_ease-in-out_infinite]"
         >
-            <img :src="iconUrl" alt="二维码" class="qr-code" />
+          <img :src="iconUrl" alt="应用图标" class="w-full h-full object-contain p-1" />
         </div>
 
         <!-- 标题 -->
         <h1 class="text-5xl md:text-7xl font-black leading-[0.95] tracking-tight">
-        {{appName}}
+          {{ appName }}
         </h1>
 
         <!-- 描述 -->
-        <p class="text-base md:text-lg max-w-md">
-          {{appDesc}}
+        <p class="text-base md:text-lg max-w-md text-gray-800 font-medium">
+          {{ appDesc }}
         </p>
       </div>
 
       <!-- 底部加载 -->
       <div class="max-w-md space-y-4">
         <div class="flex justify-between text-sm font-bold">
-          <span>正在打开...</span>
+          <span>{{ nowMsg }}</span>
           <span>{{ Math.min(progress, 100).toFixed(0) }}%</span>
         </div>
 
-        <div class="h-3 bg-black/20 rounded-full overflow-hidden">
+        <div class="h-3 bg-gray-900/20 border-2 border-gray-900 overflow-hidden">
           <div
-            class="h-full bg-black transition-all duration-300 rounded-full"
+            class="h-full bg-gray-900 transition-all duration-300"
             :style="{ width: `${Math.min(progress, 100)}%` }"
           />
         </div>
 
-        <div class="text-xs font-bold tracking-wide">
+        <div class="text-xs font-bold tracking-wide text-gray-700">
           Electron · 2026
         </div>
       </div>
@@ -134,7 +162,7 @@ FFEB3B-FF2E63
   50% { transform: translate(6px, -6px); }
 }
 
-/* 红色右下方块漂浮动画 */
+/* 右下方块漂浮动画 */
 @keyframes floatRed {
   0%, 100% { transform: translateY(0) rotate(12deg); }
   50% { transform: translateY(-12px) rotate(12deg); }

@@ -3,9 +3,9 @@ import { join } from 'path'
 import log from 'electron-log/main'
 import { LogFileWatcher } from './log-utils'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
-import { startInitialize, cleanupServerProcess, addLog2Vue, sleep, getAppDir } from './utils'
+import { startInitialize,deleteAppData, cleanupServerProcess, addLog2Vue, sendLatestLogToMainWindow, sleep, getAppDir } from './utils'
 import { getConfValue, setConfValue, clearConf, getEnvConf } from '../main/conf'
-import { createMainWindow, createMenu } from './windowUtils'
+import { createMainWindow, createMenu ,showMessageBox} from './windowUtils'
 
 const DEFAULT_SETTINGS = {
   updateFrequency: 'onStart',
@@ -25,11 +25,47 @@ let mainWindow: BrowserWindow | null = null
 let logWatcher: LogFileWatcher | null = null
 let initializationStarted = false
 
+// 监听日志
+const listingLog = async () =>{
+  isRendererReady = true
+  // 先清理旧的监听（避免重复监听）
+  if (logWatcher) {
+    logWatcher.cleanup()
+  }
+  // 创建新的监听器实例
+  logWatcher = new LogFileWatcher(log.transports.file.getFile().path)
+
+  // 监听日志就绪事件（前50条日志）
+  logWatcher.on('logReady', (first50Logs) => {
+    first50Logs.forEach((msg: string) => {
+      addLog2Vue(msg)
+    })
+  })
+
+  // 监听新增日志事件
+  logWatcher.on('newLogs', (newLogs) => {
+    newLogs.forEach((msg: string) => {
+      addLog2Vue(msg)
+      // 向首页发送最新的一条日志
+      sendLatestLogToMainWindow(msg)
+    })
+  })
+
+  // 监听错误事件
+  logWatcher.on('error', (errorMsg) => {
+    addLog2Vue(errorMsg)
+    console.error('日志监听错误：', errorMsg)
+  })
+
+  // 初始化监听
+  await logWatcher.initWatch()
+}
 // 初始化程序
 const runInitialization = async () => {
   if (initializationStarted) return
   initializationStarted = true
   try {
+    await listingLog()
     await sleep(200)
     await startInitialize()
   } catch (error) {
@@ -95,7 +131,7 @@ app.whenReady().then(async () => {
     createMenu()
     mainWindow?.show()
 
-    // await runInitialization()
+    await runInitialization()
   })
 
   // Set app user model id for windows
@@ -112,41 +148,11 @@ app.whenReady().then(async () => {
   })
   // 监听日志列表准备好的信号
   ipcMain.on('log-list-ready', async () => {
-    console.log('日志页面准备好接受数据了')
-    isRendererReady = true
-    // 先清理旧的监听（避免重复监听）
-    if (logWatcher) {
-      logWatcher.cleanup()
-    }
-    // 创建新的监听器实例
-    logWatcher = new LogFileWatcher(log.transports.file.getFile().path)
-
-    // 监听日志就绪事件（前50条日志）
-    logWatcher.on('logReady', (first50Logs) => {
-      first50Logs.forEach((msg: string) => {
-        addLog2Vue(msg)
-      })
-    })
-
-    // 监听新增日志事件
-    logWatcher.on('newLogs', (newLogs) => {
-      newLogs.forEach((msg: string) => {
-        addLog2Vue(msg)
-      })
-    })
-
-    // 监听错误事件
-    logWatcher.on('error', (errorMsg) => {
-      addLog2Vue(errorMsg)
-      console.error('日志监听错误：', errorMsg)
-    })
-
-    // 初始化监听
-    await logWatcher.initWatch()
+    await listingLog()
   })
 
   // 保存设置
-  ipcMain.on(
+  ipcMain.handle(
     'get-conf-value',
     (_event, conf: { key: string; defaultValue?: any; nameSpace?: string }) => {
       try {
@@ -156,15 +162,6 @@ app.whenReady().then(async () => {
       }
     }
   )
-
-  ipcMain.handle('get-versions', () => {
-    return {
-      app: getConfValue('appVersion', '1'), // 可以从package.json获取实际版本
-      electron: process.versions.electron,
-      chrome: process.versions.chrome,
-      node: process.versions.node
-    }
-  })
   // 设置相关的 IPC 处理
   // 获取设置
   ipcMain.handle('get-settings', () => {
@@ -207,11 +204,14 @@ app.whenReady().then(async () => {
   // 重置设置
   ipcMain.handle('reset-settings', () => {
     try {
+      log.info('重置设置')
       clearConf('settings')
       clearConf('common')
       setConfValue('updateFrequency', DEFAULT_SETTINGS.updateFrequency, 'settings')
+      setConfValue('distVersion', '1')
       setConfValue('startupActions', DEFAULT_SETTINGS.startupActions, 'settings')
       setConfValue('browserType', DEFAULT_SETTINGS.browserType, 'settings')
+      deleteAppData()
       return {
         success: true,
         settings: { ...DEFAULT_SETTINGS, startupActions: [...DEFAULT_SETTINGS.startupActions] }
@@ -225,8 +225,8 @@ app.whenReady().then(async () => {
   ipcMain.handle(
     'show-message',
     async (_event, message: string, type: 'info' | 'error' | 'warning' | 'success' = 'info') => {
-      // await showMessageBox(message, type)
-      console.log('show-message', message, type)
+      await showMessageBox(message, type)
+      // console.log('show-message', message, type)
     }
   )
 })

@@ -267,7 +267,7 @@ function openInBrowser(): void {
 }
 
 // 消息框工具函数
-async function showMessageBox(message: string, type: 'info' | 'error' | 'warning' | 'success' = 'info') {
+export async function showMessageBox(message: string, type: 'info' | 'error' | 'warning' | 'success' = 'info') {
   const dialogType: 'info' | 'error' | 'warning' | 'none' = type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'info'
   const options: Electron.MessageBoxOptions = {
     type: dialogType,
