@@ -1,9 +1,42 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-
+import { ref, onMounted,computed } from 'vue'
+import { resolveIconFromEnv } from '@renderer/utils/icon-utils'
+const appName = ref('')
+const appDesc = ref('')
+const appIcon = ref('')
 const progress = ref(0)
+const authorInfo = ref<AuthorInfo>({})
+// 计算图片 URL（支持通过 VITE_AUTHOR_WX_IMG 切换）
+const iconUrl = computed(() => {
+  const url = resolveIconFromEnv(appIcon.value)
+  return url
+})
+const getAppInfo = (): void => {
+  try {
+    setTimeout(() => {
+      if (window.api?.getAppInfos) {
+        const info = window.api.getAppInfos()
+        authorInfo.value.name = info.auth.name
+        authorInfo.value.email = info.auth.email
+        authorInfo.value.website = info.auth.website
+        authorInfo.value.wx = info.auth.wx
+        authorInfo.value.github = info.auth.github
+        authorInfo.value.qrLabel = info.auth.qrLabel
+        appName.value = info.name
+        appDesc.value = info.desc
+        appIcon.value = info.icon
+      } else {
+        console.warn('window.api.getSystemInfo 不可用')
+      }
 
+
+    }, 200)
+  } catch (error) {
+    console.error('获取系统信息失败:', error)
+  }
+}
 onMounted(() => {
+  getAppInfo()
   const timer = setInterval(() => {
     if (progress.value >= 100) {
       clearInterval(timer)
@@ -59,27 +92,24 @@ FFEB3B-FF2E63
                  text-3xl font-black tracking-tight
                  animate-[drift_6s_ease-in-out_infinite]"
         >
-          NP
+            <img :src="iconUrl" alt="二维码" class="qr-code" />
         </div>
 
         <!-- 标题 -->
         <h1 class="text-5xl md:text-7xl font-black leading-[0.95] tracking-tight">
-          BREAK<br />
-          THE<br />
-          FLOW
+        {{appName}}
         </h1>
 
         <!-- 描述 -->
         <p class="text-base md:text-lg max-w-md">
-          一个不循规蹈矩的桌面自动化平台。
-          为速度、创造力与掌控感而生。
+          {{appDesc}}
         </p>
       </div>
 
       <!-- 底部加载 -->
       <div class="max-w-md space-y-4">
         <div class="flex justify-between text-sm font-bold">
-          <span>BOOTING SYSTEM</span>
+          <span>正在打开...</span>
           <span>{{ Math.min(progress, 100).toFixed(0) }}%</span>
         </div>
 
@@ -91,7 +121,7 @@ FFEB3B-FF2E63
         </div>
 
         <div class="text-xs font-bold tracking-wide">
-          NOVA DESKTOP · 2026
+          Electron · 2026
         </div>
       </div>
     </div>

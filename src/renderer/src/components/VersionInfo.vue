@@ -5,18 +5,8 @@ const imageAssets = import.meta.glob('../assets/image/*', {
   eager: true,
   import: 'default'
 }) as Record<string, string>
-type SystemInfo = {
-  platform: string
-  arch: string
-  language: string
-}
 
-type VersionInfo = {
-  app: string
-  electron: string
-  chrome: string
-  node: string
-}
+
 // 计算图片 URL（支持通过 VITE_APP_ICON 切换）
 const logoIconUrl = computed(() => {
   const url = resolveIconFromEnv()
@@ -68,6 +58,7 @@ const hydrateSystemInfo = (): void => {
     setTimeout(() => {
       if (window.api?.getSystemVersions) {
         const info = window.api.getSystemVersions()
+        console.log('hydrateSystemInfo ->', info)
         versions.platform = info.platform || '未知'
         versions.arch = info.arch || '未知'
         versions.language = info.language || '未知'

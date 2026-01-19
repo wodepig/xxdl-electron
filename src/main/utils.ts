@@ -2,6 +2,7 @@ import { spawn, ChildProcess, execSync } from 'child_process'
 import { is } from '@electron-toolkit/utils'
 import { join, dirname } from 'path'
 import { createServer } from 'net'
+import log from 'electron-log/main';
 // 使用 require 方式导入解压库
 const AdmZip = require('adm-zip')
 import { getFileUpgrade } from './ulUtils'
@@ -96,13 +97,13 @@ export const startInitialize = async () => {
     //     return
     // }
     if (!existsSync(serverPath)) {
-        addLog2Vue(`错误: 服务器文件不存在: ${serverPath}`)
+      log.warn(`错误: 服务器文件不存在: ${serverPath}`)
         throw new Error(`服务器文件不存在: ${serverPath}`)
     }
     await handleNodeServer()
 
     // 更新窗口加载地址
-    const mainWindow = getWindowsByTitle(getEnvConf('VITE_APP_NAME'))
+    const mainWindow = getWindowsByTitle(getEnvConf('VITE_APP_EXE_NAME'))
     if (mainWindow) {
         const finalUrl = actualPort !== null && actualPort !== undefined ? buildUrlWithPort(import.meta.env.VITE_UL_CONF_URL!, actualPort as number) : import.meta.env.VITE_UL_CONF_URL!
         // store.set('finalUrl', finalUrl)
@@ -117,7 +118,7 @@ export const startInitialize = async () => {
             console.log('默认浏览器加载');
         }
         await sleep(100)
-        const currentWindow = getWindowsByTitle(getEnvConf('VITE_APP_NAME'))
+        const currentWindow = getWindowsByTitle(getEnvConf('VITE_APP_EXE_NAME'))
         if (currentWindow && !currentWindow.isDestroyed()) {
             try {
                 currentWindow.loadURL(finalUrl)
@@ -147,26 +148,26 @@ const handleNodeServer = async () => {
     let targetUrl = originalUrl
 
     // 检查端口是否被占用
-    addLog2Vue(`检查端口 ${targetPort} 是否可用...`)
+  log.info(`检查端口 ${targetPort} 是否可用...`)
     const portInUse = await isPortInUse(targetPort)
 
     if (portInUse) {
-        addLog2Vue(`端口 ${targetPort} 已被占用，正在查找可用端口...`)
+      log.warn(`端口 ${targetPort} 已被占用，正在查找可用端口...`)
         // 查找可用端口（从原端口+1开始）
         const newPort = await findAvailablePort(targetPort + 1)
-        addLog2Vue(`找到可用端口: ${newPort}`)
+      log.info(`找到可用端口: ${newPort}`)
         targetPort = newPort
         targetUrl = buildUrlWithPort(originalUrl, newPort)
-        addLog2Vue(`使用新端口启动程序: ${targetUrl}`)
+      log.info(`使用新端口启动程序: ${targetUrl}`)
     } else {
-        addLog2Vue(`端口 ${targetPort} 可用`)
+      log.info(`端口 ${targetPort} 可用`)
     }
 
     // 启动服务器（传入端口）
     await startServer(serverPath, targetPort)
 
     // 4. 等待服务启动成功后加载地址
-    addLog2Vue(`等待程序就绪: ${targetUrl}, 正在打开...`)
+  log.info(`等待程序就绪: ${targetUrl}, 正在打开...`)
     await waitForServer(targetUrl)
 }
 
@@ -179,7 +180,7 @@ const handleNodeServer = async () => {
 const startServer = async (serverPath: string, port?: number): Promise<void> => {
     return new Promise((resolve, reject) => {
         const electronBinary = process.execPath
-        addLog2Vue(`启动程序中: ${electronBinary} ${serverPath}`)
+      log.info(`启动程序中: ${electronBinary} ${serverPath}`)
 
         // 准备环境变量
         const env: NodeJS.ProcessEnv = {
@@ -204,16 +205,13 @@ const startServer = async (serverPath: string, port?: number): Promise<void> => 
 
         // 设置子进程输出的编码
         if (serverProcess.stdout) {
-            // addLog2Vue('设置输出1')
             serverProcess.stdout.setEncoding('utf8')
         }
         if (serverProcess.stderr) {
-            // addLog2Vue('设置输出2')
             serverProcess.stderr.setEncoding('utf8')
         }
 
         serverProcess.stdout?.on('data', (data) => {
-            // addLog2Vue('设置编码')
             // 确保输出使用 UTF-8 编码
             const output = Buffer.isBuffer(data) ? data.toString('utf8') : String(data)
             // 使用 Buffer 确保正确输出中文
@@ -228,14 +226,14 @@ const startServer = async (serverPath: string, port?: number): Promise<void> => 
         })
 
         serverProcess.on('error', (error) => {
-            addLog2Vue('启动服务器失败:' + error.message)
+          log.info('启动服务器失败:' + error.message)
             reject(error)
         })
 
         // 等待一段时间确保服务启动
         setTimeout(() => {
             if (serverProcess && !serverProcess.killed) {
-                addLog2Vue('服务器启动成功')
+              log.info('服务器启动成功')
                 resolve()
             } else {
                 reject(new Error('服务器启动失败'))
@@ -256,7 +254,7 @@ const shouldCheckUpdate = (): boolean => {
 
     // 从不更新
     if (updateFrequency === 'never') {
-        addLog2Vue('注意: 更新频率已设置为"从不更新"，跳过更新检查')
+      log.warn('注意: 更新频率已设置为"从不更新"，跳过更新检查')
         return false
     }
 
@@ -271,14 +269,14 @@ const shouldCheckUpdate = (): boolean => {
         const lastCheckTime = getConfValue('lastUpdateCheckTime', 0,)
         const now = Date.now()
         const oneDayInMs = 24 * 60 * 60 * 1000 // 24小时的毫秒数
-        console.log('上次检查时间:', lastCheckTime);
+      log.info('上次检查时间:', lastCheckTime);
 
         // 如果从未检查过，或者距离上次检查已经超过24小时
         if (lastCheckTime === 0 || (now - lastCheckTime) >= oneDayInMs) {
             return true
         } else {
             const hoursSinceLastCheck = Math.floor((now - lastCheckTime) / (60 * 60 * 1000))
-            addLog2Vue(`注意: 更新频率设置为"每天更新一次"，距离上次检查仅 ${hoursSinceLastCheck} 小时，跳过更新检查`)
+          log.info(`注意: 更新频率设置为"每天更新一次"，距离上次检查仅 ${hoursSinceLastCheck} 小时，跳过更新检查`)
             return false
         }
     }
@@ -300,7 +298,7 @@ const checkUpdate = async (distVersion: number) => {
 
     const appDir = getAppDir()
     const distZipPath = join(appDir, 'dist.zip')
-    addLog2Vue('检查程序更新...')
+  log.info('检查程序更新...')
     // 使用当前版本号检查更新
     const res = await getFileUpgrade(
         import.meta.env.VITE_UL_CONF_AK!,
@@ -323,19 +321,19 @@ const checkUpdate = async (distVersion: number) => {
         // 检查是否有新版本
         const newVersionCode = res.data.versionCode
         if (newVersionCode > distVersion) {
-            addLog2Vue(`发现新版本:${distVersion} -> ${newVersionCode},更新内容: ${res.data.promptUpgradeContent}`)
+          log.info(`发现新版本:${distVersion} -> ${newVersionCode},更新内容: ${res.data.promptUpgradeContent}`)
             const distUrl = res.data.urlPath
             await downloadFile(distUrl, distZipPath)
           setConfValue('distVersion', newVersionCode,)
             // store.set('distVersion', newVersionCode)
             return true
         } else {
-            addLog2Vue(`当前已是最新版本: ${distVersion}`)
+          log.info(`当前已是最新版本: ${distVersion}`)
         }
     } else if (res && res.code === 0) {
-        addLog2Vue('没有新版本')
+      log.info('没有新版本')
     } else {
-        addLog2Vue('检查更新失败，使用当前版本')
+      log.info('检查更新失败，使用当前版本')
     }
     return false
 }
@@ -344,7 +342,7 @@ const checkUpdate = async (distVersion: number) => {
  * @param distZipPath 程序压缩包路径
  */
 const handleDistZip = async () => {
-    addLog2Vue('检查并下载程序...')
+    log.info('检查并下载程序...')
     let clearDistPath = false
     const appDir = getAppDir()
     const distZipPath = join(appDir, 'dist.zip')
@@ -353,32 +351,30 @@ const handleDistZip = async () => {
     // 从配置中读取 distVersion，如果不存在则设置为 1
     // let distVersion = store.get('distVersion', 1) as number
     let distVersion = getConfValue('distVersion', 1)
-    addLog2Vue(`当前版本号: ${distVersion}`)
+  log.info(`当前版本号: ${distVersion}`)
     // 如果不存在 dist.zip，首次下载
     if (!existsSync(distZipPath)) {
-        addLog2Vue('程序不存在，首次下载...')
+      log.info('程序不存在，首次下载...')
         const distUrl = `https://api.upgrade.toolsetlink.com/v1/file/download?fileKey=${import.meta.env.VITE_UL_CONF_FILEKEY!}`
         await downloadFile(distUrl, distZipPath)
     } else {
         clearDistPath = await checkUpdate(distVersion)
     }
-  addLog2Vue('1')
     // 2. 解压到 dist 文件夹
     if (clearDistPath || !existsSync(serverPath)) {
         if (clearDistPath) {
-            addLog2Vue('开始清理dist文件夹')
+          log.info('开始清理dist文件夹')
             await deleteDir(extract_dir_name)
         }
-        addLog2Vue('开始解压程序到...' + distDir)
+      log.info('开始解压程序到...' + distDir)
         if (!existsSync(distDir)) {
             mkdirSync(distDir, { recursive: true })
         }
-      addLog2Vue('2')
+
         await extractZip(distZipPath, distDir)
         // await extractZip4Yauzl(distZipPath, distDir)
-      addLog2Vue('okok')
     } else {
-        addLog2Vue('程序目录已存在，跳过解压')
+      log.info('程序目录已存在，跳过解压')
     }
 }
 
@@ -395,7 +391,6 @@ const deleteDir = async (folderName: string) => {
     const stat = statSync(targetPath);
 
     if (stat.isDirectory()) {
-        // addLog2Vue('开始清理' + folderName + '文件夹')
         // 先删除目录内的所有文件和子目录
         const files = readdirSync(targetPath);
         for (const file of files) {
@@ -410,7 +405,7 @@ const deleteDir = async (folderName: string) => {
         // 删除空目录
         rmdirSync(targetPath);
     } else {
-        addLog2Vue('开始清理' + folderName + '文件')
+      log.info('开始清理' + folderName + '文件')
         // 是文件直接删除
         unlinkSync(targetPath);
     }
@@ -503,7 +498,7 @@ const downloadFile = async (url: string, destPath: string): Promise<void> => {
 
             file.on('finish', () => {
                 file.close()
-                addLog2Vue(`程序下载完成: ${destPath}`)
+              log.info(`程序下载完成: ${destPath}`)
                 sendDownloadProgress({ visible: true, progress: 100, isDownloading: false })
                 setTimeout(() => {
                     sendDownloadProgress({ visible: false, progress: 100, isDownloading: false })
@@ -521,7 +516,7 @@ const downloadFile = async (url: string, destPath: string): Promise<void> => {
         req.on('error', (err: NodeJS.ErrnoException) => {
             // 检查是否是证书相关错误
             if (err.message && (err.message.includes('certificate') || err.message.includes('CERT'))) {
-                addLog2Vue(`警告: 检测到证书错误（${err.message}），已忽略并继续下载`)
+              log.info(`警告: 检测到证书错误（${err.message}），已忽略并继续下载`)
                 // 对于证书错误，尝试重新请求（忽略证书验证）
                 if (isHttps) {
                     const retryReq = https.get(url, {
@@ -558,7 +553,7 @@ const downloadFile = async (url: string, destPath: string): Promise<void> => {
 
                         file.on('finish', () => {
                             file.close()
-                            addLog2Vue(`程序下载完成: ${destPath}`)
+                          log.info(`程序下载完成: ${destPath}`)
                             sendDownloadProgress({ visible: true, progress: 100, isDownloading: false })
                             setTimeout(() => {
                                 sendDownloadProgress({ visible: false, progress: 100, isDownloading: false })
@@ -594,7 +589,7 @@ const extractZip = async (zipPath: string, extractTo: string): Promise<void> => 
     try {
         const zip = new AdmZip(zipPath)
         zip.extractAllTo(extractTo, true)
-        addLog2Vue(`文件解压完成: ${extractTo}`)
+      log.info(`文件解压完成: ${extractTo}`)
     } catch (error) {
         throw new Error(`解压失败: ${(error as Error).message}`)
     }
@@ -686,13 +681,13 @@ const waitForServer = async (url: string, maxRetries: number = 30): Promise<void
                     reject(new Error('请求超时'))
                 })
             })
-            addLog2Vue('程序已就绪')
+          log.info('程序已就绪')
           setConfValue('nodeStart', true)
             // store.set('nodeStart', 'true')
             return
         } catch (error) {
             if (i === maxRetries - 1) {
-                addLog2Vue(JSON.stringify(error))
+              log.warn(`程序启动超时，请检查程序是否已启动`)
                 throw new Error('程序启动超时')
             }
             await new Promise(resolve => setTimeout(resolve, 1000))

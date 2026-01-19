@@ -1,24 +1,60 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+
 // import { Conf } from 'electron-conf'
 // import { getAppDir } from '../main/utils'
 // import {getConfValue} from '../main/conf'
 // 添加调试日志
-console.log('Preload script is loading...')
-console.log('process.contextIsolated:', process.contextIsolated)
 
+/**
+ * 获取应用和作者信息
+ */
+const getAppInfos = () =>{
+  const auth = {
+    name: import.meta.env.VITE_AUTHOR_NAME || '作者',
+    email: import.meta.env.VITE_AUTHOR_EMAIL || '作者邮箱',
+    website: import.meta.env.VITE_APP_HOME || '作者网站',
+    wx: import.meta.env.VITE_AUTHOR_WX || '作者微信',
+    github: import.meta.env.VITE_APP_AUTHOR_GITHUB || '作者GitHub',
+    qrLabel: import.meta.env.VITE_AUTHOR_QRLABEL || '扫码联系',
+    qrCode: import.meta.env.VITE_AUTHOR_WX_IMG || 'image/wx_qr.png'
+  }
+  let links = []
+  const linksStr = import.meta.env.VITE_APP_LINKS || ''
+  if (linksStr){
+    links = linksStr
+      .split(';')
+      .filter((link) => link.trim())
+      .map((link) => {
+        const parts = link.trim().split('|')
+        return {
+          name: parts[1] || '链接',
+          url: parts[2] || '#',
+          icon: parts[0] || '🔗'
+        }
+      })
+  }
+  return {
+    name: import.meta.env.VITE_APP_EXE_NAME || '应用名',
+    desc: import.meta.env.VITE_APP_DESC || '_',
+    icon: import.meta.env.VITE_APP_ICON || 'image/icon.png',
+    links: links,
+    auth: auth
+  }
+}
 // 获取系统版本信息
 const getSystemVersions = () => {
-  console.log('getSystemVersions',import.meta.env.VITE_APP_NAME)
-  return {
+  console.log('作者:',import.meta.env.VITE_AUTHOR_NAME)
+  const resp = {
     platform: process.platform,
     arch: process.arch,
     language: navigator.language,
-    app:  api.getConfValue({key:'appVersion',defaultValue:'1'}), // 可以从package.json获取实际版本
-    electron: process.versions.electron,
-    chrome: process.versions.chrome,
-    node: process.versions.node
+    appVersion:  api.getConfValue({key:'appVersion',defaultValue:'1'}), // 可以从package.json获取实际版本
+    electronVersion: process.versions.electron,
+    chromeVersion: process.versions.chrome,
+    nodeVersion: process.versions.node
   }
+  return resp
 }
 
 
@@ -26,9 +62,7 @@ const getSystemVersions = () => {
 const api = {
   // 记录日志
   onUpdateLog: (callback: (log: string) => void) => {
-    console.log('onUpdateLog called, 注册 log-message 监听器')
     ipcRenderer.on('log-message', (_event, value) => {
-      console.log('从主进程接收到日志:', value)
       callback(value)
     })
   },
@@ -41,6 +75,8 @@ const api = {
 
   // 添加获取系统信息和版本信息的方法
   getSystemVersions: getSystemVersions,
+  // 获取应用的信息和作者信息
+  getAppInfos: getAppInfos,
 
 
   getConfValue: (conf:{key: string,defaultValue?: any,nameSpace?:string}) => {

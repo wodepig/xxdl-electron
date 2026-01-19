@@ -14,6 +14,30 @@ interface ImportMetaEnv {
   readonly VITE_APP_LINKS?: string
   // more env variables...
 }
+// 应用的信息
+type AppInfo = {
+  name:string
+  desc:string
+  icon:string
+  links: LinkInfo[]
+  auth: AuthorInfo
+}
+
+type AuthorInfo = {
+  name?: string
+  email?: string
+  website?: string
+  wx?: string
+  github?: string
+  qrCode?: string
+  qrLabel?: string
+}
+
+type LinkInfo = {
+  name: string
+  url: string
+  icon?: string
+}
 
 type DownloadProgressPayload = {
   visible: boolean
@@ -37,6 +61,7 @@ interface Window {
     onUpdateLog?: (callback: (log: string) => void) => void
     removeUpdateLogListener?: () => void
     getSystemVersions?: () => SystemVersion
+    getAppInfos?: () => AppInfo
     onNavigate?: (callback: (path: string) => void) => void
     removeNavigateListener?: () => void
     onDownloadProgress?: (callback: (payload: DownloadProgressPayload) => void) => void

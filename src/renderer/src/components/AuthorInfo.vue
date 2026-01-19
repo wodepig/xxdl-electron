@@ -74,84 +74,21 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { resolveIconFromEnv } from '@renderer/utils/icon-utils'
 
-type AuthorInfo = {
-  name?: string
-  email?: string
-  website?: string
-  wx?: string
-  github?: string
-  qrCode?: string
-  qrLabel?: string
-}
 
-type LinkInfo = {
-  name: string
-  url: string
-  icon?: string
-}
 
-// 预加载 assets/image 下的所有图片，确保打包后也包含
-const imageAssets = import.meta.glob('../assets/image/*', {
-  eager: true,
-  import: 'default'
-}) as Record<string, string>
-
-const resolveIconFromEnv = (): string => {
-  const raw = import.meta.env.VITE_AUTHOR_WX_IMG?.trim() || ''
-  const normalized = raw.replace(/^\/+/, '')
-  if (!normalized) {
-    return new URL('../assets/image/wx_blank.png', import.meta.url).href
-  }
-
-  // env 中通常为 'image/shein.png' 这种形式
-  const candidates = [
-    `../assets/${normalized}`,
-    `../assets/image/${normalized.replace(/^image\//, '')}`
-  ]
-
-  for (const key of Object.keys(imageAssets)) {
-    if (candidates.some((c) => key.endsWith(c.replace('..', '')))) {
-      return imageAssets[key]
-    }
-  }
-
-  // 找不到就退回默认图
-  return new URL('../assets/image/wx_blank.png', import.meta.url).href
-}
 
 // 计算图片 URL（支持通过 VITE_AUTHOR_WX_IMG 切换）
 const qrCodeUrl = computed(() => {
-  const url = resolveIconFromEnv()
+  const url = resolveIconFromEnv(authorInfo.value.qrCode)
   console.log('logoIconUrl ->', url)
   return url
 })
-const authorInfo = ref<AuthorInfo>({
-  name: import.meta.env.VITE_AUTHOR_NAME || '作者',
-  email: import.meta.env.VITE_AUTHOR_EMAIL || '作者邮箱',
-  website: import.meta.env.VITE_APP_HOME || '作者网站',
-  wx: import.meta.env.VITE_AUTHOR_WX || '作者微信',
-  github: import.meta.env.VITE_APP_AUTHOR_GITHUB || '作者GitHub',
-  qrLabel: import.meta.env.VITE_AUTHOR_QRLABEL || '扫码联系'
-})
+const authorInfo = ref<AuthorInfo>({})
 
 // 从环境变量读取相关链接（支持多个链接，用分号分隔）
-const links = computed<LinkInfo[]>(() => {
-  const linksStr = import.meta.env.VITE_APP_LINKS || ''
-  if (!linksStr) return []
-
-  return linksStr
-    .split(';')
-    .filter((link) => link.trim())
-    .map((link) => {
-      const parts = link.trim().split('|')
-      return {
-        name: parts[1] || '链接',
-        url: parts[2] || '#',
-        icon: parts[0] || '🔗'
-      }
-    })
-})
+let links: LinkInfo[] = []
 
 // 复制到剪贴板
 const copyToClipboard = async (text: string): Promise<void> => {
@@ -189,8 +126,32 @@ const copyToClipboard = async (text: string): Promise<void> => {
     }
   }
 }
+const getAppInfo = (): void => {
+  try {
+    setTimeout(() => {
+      if (window.api?.getAppInfos) {
+        const info = window.api.getAppInfos()
+        authorInfo.value.name = info.auth.name
+        authorInfo.value.email = info.auth.email
+        authorInfo.value.website = info.auth.website
+        authorInfo.value.wx = info.auth.wx
+        authorInfo.value.github = info.auth.github
+        authorInfo.value.qrLabel = info.auth.qrLabel
+        authorInfo.value.qrCode = info.auth.qrCode
+        links = info.links
+      } else {
+        console.warn('window.api.getSystemInfo 不可用')
+      }
 
-onMounted(() => {})
+
+    }, 200)
+  } catch (error) {
+    console.error('获取系统信息失败:', error)
+  }
+}
+onMounted(() => {
+  getAppInfo()
+})
 </script>
 
 <style scoped>
