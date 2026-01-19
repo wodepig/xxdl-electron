@@ -5,18 +5,21 @@ import { createServer } from 'net'
 // 使用 require 方式导入解压库
 const AdmZip = require('adm-zip')
 import { getFileUpgrade } from './ulUtils'
-import {getConfValue, setConfValue} from '../main/conf'
+import {getConfValue, setConfValue, getEnvConf} from './conf'
+import {getWindowsByTitle} from './windowUtils'
 import https from 'https'
+
+
 import http from 'http'
 const extract_dir_name = 'dist_server'
 import { readFileSync, existsSync, mkdirSync, createWriteStream, rmdirSync, unlinkSync, statSync, readdirSync } from 'fs'
-import { app, BrowserWindow, dialog, shell } from 'electron'
+import { app, dialog, shell } from 'electron'
 // import StorePkg from 'electron-store';
 // import Store from 'electron-store';
 //@ts-ignore
 // const Store = StorePkg.default || StorePkg;
 // const store = new Store();
-import { logBuffer, isRendererReady, downloadProgressBuffer, type DownloadProgressPayload } from './index'
+import {  isRendererReady, downloadProgressBuffer, type DownloadProgressPayload } from './index'
 
 // 启动 Node 服务
 let serverProcess: ChildProcess | null = null
@@ -99,7 +102,7 @@ export const startInitialize = async () => {
     await handleNodeServer()
 
     // 更新窗口加载地址
-    const mainWindow = getMainWindow()
+    const mainWindow = getWindowsByTitle(getEnvConf('VITE_APP_NAME'))
     if (mainWindow) {
         const finalUrl = actualPort !== null && actualPort !== undefined ? buildUrlWithPort(import.meta.env.VITE_UL_CONF_URL!, actualPort as number) : import.meta.env.VITE_UL_CONF_URL!
         // store.set('finalUrl', finalUrl)
@@ -114,7 +117,7 @@ export const startInitialize = async () => {
             console.log('默认浏览器加载');
         }
         await sleep(100)
-        const currentWindow = getMainWindow()
+        const currentWindow = getWindowsByTitle(getEnvConf('VITE_APP_NAME'))
         if (currentWindow && !currentWindow.isDestroyed()) {
             try {
                 currentWindow.loadURL(finalUrl)
@@ -412,23 +415,23 @@ const deleteDir = async (folderName: string) => {
         unlinkSync(targetPath);
     }
 }
-// 向 Vue 发送日志
-export const addLog2Vue = (log: string): void => {
-    const mainWindow = getMainWindow()
-    // console.log('addLog2Vue', log);
-    // 如果渲染进程还没准备好，将日志添加到缓冲区
-    if (!isRendererReady) {
-        logBuffer.push(log)
-        return
-    }
+/**
+ * 向 日志组件 添加日志, 如果需要记录日志到文件, 直接调用log.xx方法
+ * @param msg
+ */
+export const addLog2Vue = (msg: string): void => {
+    // const mainWindow = getMainWindow()
+  const logWindows = getWindowsByTitle('日志')
 
-    if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('log-message', log)
-    }
+    if (logWindows && !logWindows.isDestroyed()) {
+      logWindows.webContents.send('log-message', msg)
+    } else {
+      console.log('日志窗口未打开...' )
+  }
 }
 
 const sendDownloadProgress = (payload: DownloadProgressPayload): void => {
-    const mainWindow = getMainWindow()
+    const mainWindow =  getWindowsByTitle(getEnvConf('VITE_APP_NAME'))
     if (!isRendererReady || !mainWindow || mainWindow.isDestroyed()) {
         downloadProgressBuffer.push(payload)
         return
@@ -442,27 +445,6 @@ export const getAppDir = (): string => {
         return join(__dirname, '../../')
     }
     return join(app.getAppPath(), '../')
-}
-
-/**
- * 获取主窗口实例
- * 假设主窗口是第一个创建的窗口，或者具有特定的标题/URL来识别
- * @returns 主窗口实例（如果存在）
- */
-const getMainWindow = (): BrowserWindow | undefined => {
-    // 获取所有打开的窗口
-    const windows = BrowserWindow.getAllWindows();
-
-    // 这里需要一个可靠的方式来识别哪个是你的主窗口
-    // 方法一：假设主窗口是第一个创建的（最简单，但不够健壮）
-    return windows[0];
-
-    // 方法二：通过窗口标题识别（推荐，更可靠）
-    // 假设你在创建窗口时设置了 title: 'My App Log'
-    //   return windows.find(win => win.getTitle() === 'My App Log');
-
-    // 方法三：通过加载的URL识别
-    // return windows.find(win => win.webContents.getURL().includes('log.html'));
 }
 
 

@@ -1,7 +1,7 @@
 ## 介绍
 Electron启动器, 用来下载Node项目并运行. 支持自动更新.
 框架使用的是[electron-vite](https://cn.electron-vite.org/guide/introduction.html)
-自动更新服务提供: [UpgradeLink](http://upgrade.toolsetlink.com/)
+自动更新服务提供者: [UpgradeLink](http://upgrade.toolsetlink.com/)
 ## 使用
 Nuxt或Next全栈项目开发后, 打包并构建. 然后把构建物上传到UpgradeLink的文件升级服务中.
 根据环境变量配置应用的信息.
@@ -47,3 +47,7 @@ compression: maximum会花费很长时间构建(比normal多3倍的时间), 但�
 ## 打包后
 1. 删除了多余的语言
 scripts/cleanup-locales.js
+
+## 方法说明
+主线程中使用log.xxx记录日志到文件中.
+addlog2vue是把日志放到日志组件中, 方便查看.

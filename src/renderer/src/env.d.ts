@@ -21,13 +21,22 @@ type DownloadProgressPayload = {
   isDownloading: boolean
 }
 
+type SystemVersion = {
+  platform: string
+  arch: string
+  language: string
+  appVersion: string
+  electronVersion: string
+  chromeVersion: string
+  nodeVersion: string
+}
+
 interface Window {
   electron?: any
   api?: {
     onUpdateLog?: (callback: (log: string) => void) => void
     removeUpdateLogListener?: () => void
-    getSystemInfo?: () => { platform: string; arch: string; language: string }
-    getVersions?: () => Record<string, string>
+    getSystemVersions?: () => SystemVersion
     onNavigate?: (callback: (path: string) => void) => void
     removeNavigateListener?: () => void
     onDownloadProgress?: (callback: (payload: DownloadProgressPayload) => void) => void

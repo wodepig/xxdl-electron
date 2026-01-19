@@ -46,24 +46,19 @@ const resolveIconFromEnv = (): string => {
   // 找不到就退回默认图
   return new URL('../assets/image/icon.png', import.meta.url).href
 }
-const systemInfo = reactive<SystemInfo>({
+const versions = reactive<SystemVersion>({
   platform: '未知',
   arch: '未知',
-  language: '未知'
+  language: '未知',
+  appVersion: 'N/A',
+  electronVersion: 'N/A',
+  chromeVersion: 'N/A',
+  nodeVersion: 'N/A'
 })
 
-const versions = reactive<VersionInfo>({
-  app: '1.0.0',
-  electron: 'N/A',
-  chrome: 'N/A',
-  node: 'N/A'
-})
-const appInfo = ref({
-  name: import.meta.env.VITE_APP_NAME || '应用名称',
-  icon: import.meta.env.VITE_APP_ICON || '应用图标',
-  desc: import.meta.env.VITE_APP_DESC || '应用描述',
-  home: import.meta.env.VITE_APP_HOME || '应用首页'
-})
+
+
+
 const appendLog = (message: string): void => {
   // logs.value.push(message)
   // autoScroll()
@@ -71,24 +66,20 @@ const appendLog = (message: string): void => {
 const hydrateSystemInfo = (): void => {
   try {
     setTimeout(() => {
-      if (window.api?.getSystemInfo) {
-        const info = window.api.getSystemInfo()
-        systemInfo.platform = info.platform || '未知'
-        systemInfo.arch = info.arch || '未知'
-        systemInfo.language = info.language || '未知'
+      if (window.api?.getSystemVersions) {
+        const info = window.api.getSystemVersions()
+        versions.platform = info.platform || '未知'
+        versions.arch = info.arch || '未知'
+        versions.language = info.language || '未知'
+        versions.appVersion = info.appVersion || '1'
+        versions.electronVersion = info.electronVersion || 'N/A'
+        versions.chromeVersion = info.chromeVersion || 'N/A'
+        versions.nodeVersion = info.nodeVersion || 'N/A'
       } else {
         console.warn('window.api.getSystemInfo 不可用')
       }
 
-      if (window.api?.getVersions) {
-        const vers = window.api.getVersions()
-        versions.app = vers.app || '1'
-        versions.electron = vers.electron || 'N/A'
-        versions.chrome = vers.chrome || 'N/A'
-        versions.node = vers.node || 'N/A'
-      } else {
-        console.warn('window.api.getVersions 不可用')
-      }
+
     }, 200)
   } catch (error) {
     console.error('获取系统信息失败:', error)
@@ -121,15 +112,15 @@ onMounted(() => {
           <h2>系统信息</h2>
           <div class="info-item">
             <strong>平台:</strong>
-            <span>{{ systemInfo.platform }}</span>
+            <span>{{ versions.platform }}</span>
           </div>
           <div class="info-item">
             <strong>架构:</strong>
-            <span>{{ systemInfo.arch }}</span>
+            <span>{{ versions.arch }}</span>
           </div>
           <div class="info-item">
             <strong>语言:</strong>
-            <span>{{ systemInfo.language }}</span>
+            <span>{{ versions.language }}</span>
           </div>
         </div>
 
@@ -137,19 +128,19 @@ onMounted(() => {
           <h2>版本信息</h2>
           <div class="info-item">
             <strong>应用版本:</strong>
-            <span>{{ versions.app }}</span>
+            <span>{{ versions.appVersion   }}</span>
           </div>
           <div class="info-item">
             <strong>Electron:</strong>
-            <span>{{ versions.electron }}</span>
+            <span>{{ versions.electronVersion }}</span>
           </div>
           <div class="info-item">
             <strong>Node:</strong>
-            <span>{{ versions.node }}</span>
+            <span>{{ versions.nodeVersion }}</span>
           </div>
           <div class="info-item">
             <strong>Chrome:</strong>
-            <span>{{ versions.chrome }}</span>
+            <span>{{ versions.chromeVersion }}</span>
           </div>
         </div>
       </section>

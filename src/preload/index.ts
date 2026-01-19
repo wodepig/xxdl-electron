@@ -6,26 +6,14 @@ import { electronAPI } from '@electron-toolkit/preload'
 // 添加调试日志
 console.log('Preload script is loading...')
 console.log('process.contextIsolated:', process.contextIsolated)
-// import Store from 'electron-store';
-// import StorePkg from 'electron-store';
-//@ts-ignore
-// const Store = StorePkg.default || StorePkg;
-// const store = new Store();
-// 获取系统信息和版本信息
-const getSystemInfo = () => {
+
+// 获取系统版本信息
+const getSystemVersions = () => {
+  console.log('getSystemVersions',import.meta.env.VITE_APP_NAME)
   return {
     platform: process.platform,
     arch: process.arch,
-    language: navigator.language
-  }
-}
-
-const getVersions =  () => {
-  // debugger
-  console.log('getVersions called')
-  // const conf = new Conf({name:'common'})
-  // console.log(conf.get('appVersion','1'))
-  return {
+    language: navigator.language,
     app:  api.getConfValue({key:'appVersion',defaultValue:'1'}), // 可以从package.json获取实际版本
     electron: process.versions.electron,
     chrome: process.versions.chrome,
@@ -33,11 +21,16 @@ const getVersions =  () => {
   }
 }
 
+
 // Custom APIs for renderer
 const api = {
+  // 记录日志
   onUpdateLog: (callback: (log: string) => void) => {
-    console.log('onUpdateLog called')
-    ipcRenderer.on('log-message', (_event, value) => callback(value))
+    console.log('onUpdateLog called, 注册 log-message 监听器')
+    ipcRenderer.on('log-message', (_event, value) => {
+      console.log('从主进程接收到日志:', value)
+      callback(value)
+    })
   },
 
   removeUpdateLogListener: () => {
@@ -47,11 +40,8 @@ const api = {
   },
 
   // 添加获取系统信息和版本信息的方法
-  getSystemInfo: getSystemInfo,
-  getVersions: getVersions,
-  // getVersions: () => {
-  //   return ipcRenderer.invoke('get-versions')
-  // },
+  getSystemVersions: getSystemVersions,
+
 
   getConfValue: (conf:{key: string,defaultValue?: any,nameSpace?:string}) => {
     return ipcRenderer.send('get-conf-value', conf)

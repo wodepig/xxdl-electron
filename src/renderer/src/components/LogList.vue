@@ -30,12 +30,14 @@ const attachLogListener = (): void => {
     console.warn('错误: 无法连接到主进程日志接口')
     return
   }
+  console.log('绑定日志接受器')
 
   window.api.onUpdateLog(addLog)
   logListenerAttached = true
 }
 // 添加日志到日志列表
 const addLog = (raw: string): void => {
+  console.log('接受到发来的日志')
   let parsed: ParsedLog
   const match = raw.match(LOG_REG)
   if (match) {
