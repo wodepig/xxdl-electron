@@ -1,6 +1,5 @@
 appId: electron.xxdl.xyz
 productName: xxdl-electron
-electronDist: D:\\soft\\electron
 directories:
   buildResources: build
 files:

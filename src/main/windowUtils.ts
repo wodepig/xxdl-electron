@@ -7,12 +7,16 @@ import { openBrowserWithType } from './utils'
 import { is } from '@electron-toolkit/utils'
 import log from 'electron-log/main'
 
+// 菜单创建标志，确保只创建一次
+let isMenuCreated = false
+
 /**
  * 创建主窗口
  */
 export const createMainWindow =async () =>{
 
-  const mainWindow  =await  createWindows(getEnvConf('VITE_APP_EXE_NAME'))
+  // 主窗口设置 autoShow=false，由外部控制显示时机
+  const mainWindow  =await  createWindows(getEnvConf('VITE_APP_EXE_NAME'), null, false)
     mainWindow?.webContents.setWindowOpenHandler((details) => {
       shell.openExternal(details.url)
       return { action: 'deny' }
@@ -57,11 +61,37 @@ export const createMainWindow =async () =>{
 }
 
 /**
+ * 确保应用菜单已创建（兼容 mini-electron）
+ * 在窗口完全就绪后调用，只执行一次
+ */
+export const ensureMenuCreated = (mainWindow: BrowserWindow | null) => {
+  if (isMenuCreated) {
+    log.info('应用菜单已存在，跳过重复创建')
+    return
+  }
+
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    log.warn('窗口不可用，无法创建菜单')
+    return
+  }
+
+  try {
+    log.info('开始创建应用菜单...')
+    createMenu(mainWindow)
+    isMenuCreated = true
+    log.info('应用菜单创建成功')
+  } catch (error) {
+    log.error('创建应用菜单失败:', error)
+  }
+}
+
+/**
  * 创建一个普通的窗口
  * @param name 窗口标题
  * @param parent 父窗口
+ * @param autoShow 是否自动显示（主窗口设为false，由外部控制显示时机）
  */
-export const createWindows =async  (name: string, parent?: BrowserWindow | null) =>{
+export const createWindows =async  (name: string, parent?: BrowserWindow | null, autoShow: boolean = true) =>{
   const existsWindow = getWindowsByTitle(name)
   if (existsWindow) {
     existsWindow.focus()
@@ -82,12 +112,17 @@ export const createWindows =async  (name: string, parent?: BrowserWindow | null)
     pageUrl = '/log'
   }
   const defaultIcon = join(__dirname, getIconPath())
+
+  // 为主窗口配置持久化的 session，确保 cookies 能正常保存（解决 nuxt-auth-utils 等需要 session 的问题）
+  const isMainWindow = name === getEnvConf('VITE_APP_EXE_NAME')
+
   // 创建新窗口
   let targetWindows = new BrowserWindow({
     width: 1000,
     height: 900,
     show: false,
-    autoHideMenuBar: false,
+    // 主窗口显示菜单栏，子窗口自动隐藏
+    autoHideMenuBar: !isMainWindow,
     resizable: true,
     icon:defaultIcon,
     minimizable: true,
@@ -97,17 +132,35 @@ export const createWindows =async  (name: string, parent?: BrowserWindow | null)
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       devTools: true,
-      contextIsolation: true
+      contextIsolation: true,
+      // 主窗口使用持久化的 partition，确保 cookies 和 session 能正常工作
+      partition: isMainWindow ? 'persist:main' : undefined
     },
     parent: parent || undefined, // 设置父窗口
     modal: false // 非模态窗口
   })
 
-  // 窗口准备好后显示
+  // 窗口准备好后的处理
   targetWindows.once('ready-to-show', () => {
     targetWindows?.setTitle(name)
     resetWindowsSizeAndPosition(name)
-    targetWindows?.show()
+
+    // 只有 autoShow 为 true 时才自动显示（子窗口）
+    // 主窗口由外部控制显示时机
+    if (autoShow) {
+      targetWindows?.show()
+      log.info(`子窗口 ${name} 已显示`)
+    } else {
+      log.info(`窗口 ${name} 准备完成，等待外部显示`)
+    }
+
+    // 如果是主窗口，在这里创建菜单（第一次尝试）
+    if (name === getEnvConf('VITE_APP_EXE_NAME') && !isMenuCreated) {
+      log.info('主窗口 ready-to-show 触发，尝试创建菜单（第一次）')
+      setImmediate(() => {
+        ensureMenuCreated(targetWindows)
+      })
+    }
   })
 
   // 窗口关闭时清理引用
@@ -124,14 +177,26 @@ export const createWindows =async  (name: string, parent?: BrowserWindow | null)
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     targetWindows.loadURL(`${process.env['ELECTRON_RENDERER_URL']}#${pageUrl}`)
   } else {
-    // 生产环境：先加载文件，然后在页面加载完成后导航到 about 页面
-    targetWindows.loadFile(join(__dirname, '../renderer/index.html'))
-    targetWindows.webContents.once('did-finish-load', () => {
-      targetWindows?.webContents.executeJavaScript(`
-        if (window.location.hash !== '#${pageUrl}') {
-          window.location.hash = '#${pageUrl}'
-        }
-      `)
+    // 生产环境：先加载文件，然后在页面加载完成后导航
+    const htmlPath = join(__dirname, '../renderer/index.html')
+    log.info(`加载HTML文件: ${htmlPath}, 目标路由: ${pageUrl}`)
+
+    targetWindows.loadFile(htmlPath, { hash: pageUrl }).catch(err => {
+      log.error(`加载HTML文件失败: ${err.message}`)
+      // 降级方案：先加载文件，再通过JS设置路由
+      targetWindows?.loadFile(htmlPath).then(() => {
+        // 等待更长时间确保Vue Router初始化完成
+        setTimeout(() => {
+          if (targetWindows && !targetWindows.isDestroyed()) {
+            targetWindows.webContents.executeJavaScript(`
+              console.log('设置路由:', '${pageUrl}');
+              if (window.location.hash !== '#${pageUrl}') {
+                window.location.hash = '#${pageUrl}';
+              }
+            `).catch(e => log.error('设置路由失败:', e))
+          }
+        }, 500)
+      })
     })
   }
 
@@ -165,7 +230,7 @@ export const getWindowsByTitle = (titleName:string): BrowserWindow | undefined =
  * 刷新窗口
  * @param window
  */
-const refreshWindow = (window: BrowserWindow) => {
+const refreshWindow = (window: BrowserWindow | undefined) => {
   if (!window || window.isDestroyed()) {
     log.warn('窗口不可用，无法刷新')
     return
@@ -174,8 +239,12 @@ const refreshWindow = (window: BrowserWindow) => {
 }
 
 // 创建菜单
-export const createMenu =(): void => {
-  const mainWindow = getWindowsByTitle(getEnvConf('VITE_APP_EXE_NAME'))
+export const createMenu =(mainWindow?: BrowserWindow | null): void => {
+  // 如果没有传入窗口，则通过标题查找
+  if (!mainWindow) {
+    mainWindow = getWindowsByTitle(getEnvConf('VITE_APP_EXE_NAME'))
+  }
+
   if(!mainWindow){
     log.warn('创建菜单失败: 主窗口不存在')
      return
@@ -220,24 +289,32 @@ export const createMenu =(): void => {
       label: '刷新',
       accelerator: 'CmdOrCtrl+R',
       click: () => {
-        refreshWindow(mainWindow)
+        // 每次点击时动态获取主窗口，而不是使用闭包捕获的引用
+        const win = getWindowsByTitle(getEnvConf('VITE_APP_EXE_NAME'))
+        refreshWindow(win)
       }
     },
     {
       label: '设置',
       click: async () => {
-        await createWindows('设置',mainWindow)
+        // 每次点击时动态获取主窗口
+        const win = getWindowsByTitle(getEnvConf('VITE_APP_EXE_NAME'))
+        await createWindows('设置', win)
       }
     },
     {
       label: '关于',
       click: async () => {
-        await createWindows('关于',mainWindow)
+        // 每次点击时动态获取主窗口
+        const win = getWindowsByTitle(getEnvConf('VITE_APP_EXE_NAME'))
+        await createWindows('关于', win)
       }
     },{
       label: '日志',
       click: async () => {
-        await createWindows('日志',mainWindow)
+        // 每次点击时动态获取主窗口
+        const win = getWindowsByTitle(getEnvConf('VITE_APP_EXE_NAME'))
+        await createWindows('日志', win)
       }
     }
   ]

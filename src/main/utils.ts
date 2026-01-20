@@ -2,9 +2,8 @@ import { spawn, ChildProcess, execSync } from 'child_process'
 import { is } from '@electron-toolkit/utils'
 import { join, dirname } from 'path'
 import { createServer } from 'net'
+import {unzip} from 'unzipit';
 import log from 'electron-log/main'
-// 使用 require 方式导入解压库
-const AdmZip = require('adm-zip')
 import { getFileUpgrade } from './ulUtils'
 import { getConfValue, setConfValue, getEnvConf } from './conf'
 import { getWindowsByTitle } from './windowUtils'
@@ -12,10 +11,13 @@ import https from 'https'
 
 import http from 'http'
 const extract_dir_name = 'dist_server'
+
 import {
+  accessSync,
   readFileSync,
   existsSync,
   mkdirSync,
+  writeFileSync,
   createWriteStream,
   rmdirSync,
   unlinkSync,
@@ -395,9 +397,7 @@ const handleDistZip = async () => {
     if (!existsSync(distDir)) {
       mkdirSync(distDir, { recursive: true })
     }
-
-    await extractZip(distZipPath, distDir)
-    // await extractZip4Yauzl(distZipPath, distDir)
+    await extractZip4unzipit(distZipPath, distDir)
   } else {
     log.info('程序目录已存在，跳过解压')
   }
@@ -462,7 +462,7 @@ export const sendLatestLogToMainWindow = (msg: string): void => {
 // 发送下载进度
 const sendDownloadProgress = (payload: DownloadProgressPayload): void => {
   const mainWindow = getWindowsByTitle(getEnvConf('VITE_APP_EXE_NAME'))
-  if (!isRendererReady || !mainWindow || mainWindow.isDestroyed()) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
     downloadProgressBuffer.push(payload)
     return
   }
@@ -632,16 +632,56 @@ const downloadFile = async (url: string, destPath: string): Promise<void> => {
   })
 }
 
-// 解压 ZIP 文件
-const extractZip = async (zipPath: string, extractTo: string): Promise<void> => {
+/**
+ * 使用 unzipit 解压 ZIP 文件到指定目录
+ * @param zipPath ZIP文件的绝对/相对路径
+ * @param extractTo 解压目标目录路径
+ * @returns Promise<void>
+ */
+const extractZip4unzipit = async (absoluteZipPath: string, absoluteExtractPath: string): Promise<void> => {
   try {
-    const zip = new AdmZip(zipPath)
-    zip.extractAllTo(extractTo, true)
-    log.info(`文件解压完成: ${extractTo}`)
+    log.info('开始解压文件,来自日志>>>')
+
+    // 2. 检查 ZIP 文件是否存在
+    try {
+      await accessSync(absoluteZipPath);
+    } catch (err: any) {
+      throw new Error(`ZIP 文件不存在: ${absoluteZipPath}`);
+    }
+
+    // 3. 读取 ZIP 文件内容为 Buffer
+    const zipBuffer = await readFileSync(absoluteZipPath);
+
+    // 4. 使用 unzipit 解析 ZIP 文件
+    const { entries } = await unzip(zipBuffer);
+
+    // 5. 遍历所有文件/文件夹并解压
+    for (const [entryPath, entry] of Object.entries(entries)) {
+      // 拼接目标文件/文件夹的绝对路径
+      const targetPath = join(absoluteExtractPath, entryPath);
+
+      if (entry.isDirectory) {
+        // 如果是文件夹，创建目录（递归创建父目录，已存在则忽略）
+        await mkdirSync(targetPath, { recursive: true });
+      } else {
+        // 如果是文件：先创建父目录，再写入文件内容
+        const parentDir = dirname(targetPath);
+        await mkdirSync(parentDir, { recursive: true });
+
+        // 读取 ZIP 内文件内容并写入目标路径
+        const fileContent = await entry.arrayBuffer();
+        await writeFileSync(targetPath, Buffer.from(fileContent));
+      }
+    }
+
+    console.log(`ZIP 文件已成功解压到: ${absoluteExtractPath}`);
   } catch (error) {
-    throw new Error(`解压失败: ${(error as Error).message}`)
+    // 统一捕获并抛出异常，方便调用方处理
+    const errMsg = error instanceof Error ? error.message : '解压过程中发生未知错误';
+    throw new Error(`解压失败: ${errMsg}`);
   }
-}
+};
+
 
 // 从 URL 中提取端口
 const extractPortFromUrl = (url: string): number => {

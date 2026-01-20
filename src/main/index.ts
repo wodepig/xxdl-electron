@@ -1,11 +1,11 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, session } from 'electron'
 import { join } from 'path'
 import log from 'electron-log/main'
 import { LogFileWatcher } from './log-utils'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { startInitialize,deleteAppData, cleanupServerProcess, addLog2Vue, sendLatestLogToMainWindow, sleep, getAppDir } from './utils'
 import { getConfValue, setConfValue, clearConf, getEnvConf } from '../main/conf'
-import { createMainWindow, createMenu ,showMessageBox} from './windowUtils'
+import { createMainWindow, showMessageBox, ensureMenuCreated } from './windowUtils'
 
 const DEFAULT_SETTINGS = {
   updateFrequency: 'onStart',
@@ -122,15 +122,33 @@ app.whenReady().then(async () => {
   // 初始化日志配置
   initLogConfig()
 
+  // 配置主窗口的 session，确保 cookies 能正常工作（解决 nuxt-auth-utils 等需要 session 的问题）
+  const mainSession = session.fromPartition('persist:main')
+
+  // 启用持久化存储（初始化 session）
+  await mainSession.clearStorageData({ storages: [] }) // 不清除任何内容，仅确保 session 初始化
+
+  log.info('主 session 已配置：启用 cookie 持久化')
+
   // 创建窗口
   mainWindow = await createMainWindow()
 
-  // mainWindow?.loadURL('https://www.baidu.com')
-  mainWindow?.on('ready-to-show', async () => {
-    // 创建菜单
-    createMenu()
-    mainWindow?.show()
+  // 等待窗口准备好后再处理
+  mainWindow?.once('ready-to-show', async () => {
+    log.info('主窗口 ready-to-show 事件触发（index.ts）')
 
+    // 先显示窗口
+    mainWindow?.show()
+    log.info('主窗口已显示')
+
+    // 延迟创建菜单（第二次尝试，兼容 mini-electron）
+    // 如果第一次已经创建成功，会被跳过
+    setTimeout(() => {
+      log.info('尝试创建菜单（第二次，延迟100ms）')
+      ensureMenuCreated(mainWindow)
+    }, 100)
+
+    // 开始初始化
     await runInitialization()
   })
 

@@ -68,7 +68,7 @@ onMounted(async () => {
         <h2 class="text-xl font-black mb-5 tracking-tight pb-3 border-b-2 border-gray-900 text-gray-900">版本信息</h2>
         <div class="space-y-3">
           <div class="flex justify-between items-center py-2 border-b border-gray-200">
-            <span class="font-bold text-sm text-gray-700">应用版本</span>
+            <span class="font-bold text-sm text-gray-700">应用构建版本</span>
             <span class="font-black text-base bg-[#FFD4C8] text-gray-900 px-3 py-1 border-2 border-gray-900">{{ versions.appVersion }}</span>
           </div>
           <div class="flex justify-between items-center py-2 border-b border-gray-200">

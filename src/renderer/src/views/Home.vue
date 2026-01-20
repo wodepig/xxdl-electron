@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { resolveIconFromEnv } from '@renderer/utils/icon-utils'
 const appName = ref('')
 const appDesc = ref('')
@@ -71,12 +71,7 @@ onMounted(() => {
   }, 90)
 })
 
-onBeforeUnmount(() => {
-  // 清理日志监听器
-  if (window.api?.removeLatestLogListener) {
-    window.api.removeLatestLogListener()
-  }
-})
+
 </script>
 
 <template>
