@@ -15,8 +15,8 @@ importers:
         specifier: ^4.0.0
         version: 4.0.0(electron@34.5.8)
       '@toolsetlink/upgradelink-api-typescript':
-        specifier: ^2.1.0
-        version: 2.1.0
+        specifier: ^2.4.0
+        version: 2.4.1
       adm-zip:
         specifier: ^0.5.16
         version: 0.5.16
@@ -761,11 +761,8 @@ packages:
   '@toolsetlink/darabonba-base-typescript@1.0.0':
     resolution: {integrity: sha512-xhB5GTmKTGFr8cKSZK14zFuI021S8jCx3emZEgg+stqTP5c3awo6vqgLFlyX86csD7b08jLodXRSAxijUyBZhA==}
 
-  '@toolsetlink/upgradelink-api-typescript@1.5.0':
-    resolution: {integrity: sha512-uybU3c56pDPwaZJjZaZZefSWXT9nhkobdSbTRPqY/cizoeb6K5xUA75/56MkvO0YDLVbdypyQXWtMXzBAT0obg==}
-
-  '@toolsetlink/upgradelink-api-typescript@2.1.0':
-    resolution: {integrity: sha512-WfajFaGeWh5FnfMjxTCjXHVxXVuKZTVuoCTE9DOJxXAPknGN/8HwBZQkR4fzKkVM4psyFKLmFfACL48z1HG2zQ==}
+  '@toolsetlink/upgradelink-api-typescript@2.4.1':
+    resolution: {integrity: sha512-Wn0iLMxTx7AZMG/0GBdmnuS+5V2T0PgUC+b9SZFDwpFAz9pXK6p+O3R+5aywrTMGIsXG83gj2o5MrrmyvryB1A==}
 
   '@tootallnate/once@2.0.0':
     resolution: {integrity: sha512-XCuKFP5PS55gnMVu3dty8KPatLqUoy/ZYzDzAGCQ8JNFCkLXzmI7vNHCR+XpbZaMWQK/vQubr7PkYq8g470J/A==}
@@ -3490,20 +3487,11 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@toolsetlink/upgradelink-api-typescript@1.5.0':
+  '@toolsetlink/upgradelink-api-typescript@2.4.1':
     dependencies:
       '@alicloud/tea-typescript': 1.8.0
       '@alicloud/tea-util': 1.4.10
       '@toolsetlink/darabonba-base-typescript': 1.0.0
-    transitivePeerDependencies:
-      - supports-color
-
-  '@toolsetlink/upgradelink-api-typescript@2.1.0':
-    dependencies:
-      '@alicloud/tea-typescript': 1.8.0
-      '@alicloud/tea-util': 1.4.10
-      '@toolsetlink/darabonba-base-typescript': 1.0.0
-      '@toolsetlink/upgradelink-api-typescript': 1.5.0
     transitivePeerDependencies:
       - supports-color
 

@@ -1,5 +1,53 @@
-const { default: Client, Config, FileUpgradeRequest,AppReportRequest } = require('@toolsetlink/upgradelink-api-typescript');
+const { default: Client, Config, FileUpgradeRequest,AppReportRequest,ElectronVersionRequest } = require('@toolsetlink/upgradelink-api-typescript');
 //@toolsetlink/upgradelink-api-typescript
+
+
+export async function getElectronUpgrade(ak:string,sk:string,electronKey:string, versionCode: number = 1) {
+    try {
+        // 初始化客户端
+        const config = new Config({
+            accessKey:  ak,
+            accessSecret: sk,
+        });
+        const client = new Client(config);
+
+        // 构造请求参数
+        const request = new ElectronVersionRequest(
+            {
+  "electronKey": electronKey,
+  "versionName": '1.1.1' + '',
+  "platform": "windows",
+  "arch": "x64"
+}
+        );
+        console.log('ak', ak);
+        console.log('sk', sk);
+        console.log('electronKey', electronKey);
+        console.log('versionCode', versionCode);
+        console.log('request', request);
+        
+        // 发起请求
+        const response = await client.ElectronVersion(request);
+
+        // 打印响应结果
+        console.log('\nelectron升级信息响应:');
+        console.log(`code: ${response.code}`);
+        console.log(`msg: ${response.msg}`);
+        console.log('data:');
+        console.log(response);
+        
+        // console.log(`  fileKey: ${response.data.}`);
+        // console.log(`  versionName: ${response.data.versionName}`);
+        // console.log(`  versionCode: ${response.data.versionCode}`);
+        // console.log(`  urlPath: ${response.data.urlPath}`);
+        // console.log(`  upgradeType: ${response.data.upgradeType}`);
+        // console.log(`  promptUpgradeContent: ${response.data.promptUpgradeContent}`);
+        return response
+    } catch (error) {
+        console.error('\n获取文件升级信息失败:', error);
+        return null
+    }
+}
 // 测试获取文件升级信息
 export async function getFileUpgrade(ak:string,sk:string,fk:string, versionCode: number = 1) {
     try {
@@ -18,7 +66,6 @@ export async function getFileUpgrade(ak:string,sk:string,fk:string, versionCode:
             devModelKey: '',
             devKey: ''
         });
-
         // 发起请求
         const response = await client.FileUpgrade(request);
 

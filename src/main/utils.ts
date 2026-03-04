@@ -8,7 +8,6 @@ import { getFileUpgrade } from './ulUtils'
 import { getConfValue, setConfValue, getEnvConf } from './conf'
 import { getWindowsByTitle } from './windowUtils'
 import https from 'https'
-
 import http from 'http'
 const extract_dir_name = 'dist_server'
 
@@ -31,6 +30,8 @@ import { app, dialog, shell } from 'electron'
 // const Store = StorePkg.default || StorePkg;
 // const store = new Store();
 import { isRendererReady, downloadProgressBuffer, type DownloadProgressPayload } from './index'
+
+
 
 // 启动 Node 服务
 let serverProcess: ChildProcess | null = null
