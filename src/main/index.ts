@@ -121,7 +121,8 @@ app.whenReady().then(async () => {
   // app.commandLine.appendSwitch('proxy-bypass-list', '*.toolsetlink.com;*.qq.com')
   // 初始化日志配置
   initLogConfig()
-
+try{
+  
   // 配置主窗口的 session，确保 cookies 能正常工作（解决 nuxt-auth-utils 等需要 session 的问题）
   const mainSession = session.fromPartition('persist:main')
 
@@ -129,6 +130,10 @@ app.whenReady().then(async () => {
   await mainSession.clearStorageData({ storages: [] }) // 不清除任何内容，仅确保 session 初始化
 
   log.info('主 session 已配置：启用 cookie 持久化')
+}catch(error){
+  log.error('主 session 配置失败', error)
+}
+
 
   // 创建窗口
   mainWindow = await createMainWindow()

@@ -60,6 +60,7 @@ interface Window {
   api?: {
     onUpdateLog?: (callback: (log: string) => void) => void
     removeUpdateLogListener?: () => void
+    checkPortInUse?: (port: number) => Promise<any>
     getSystemVersions?: () => SystemVersion
     getAppInfos?: () => AppInfo
     onLatestLog?: (callback:(log:string) => void) => void

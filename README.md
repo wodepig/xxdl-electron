@@ -68,8 +68,9 @@ AI写的
 1. 创建配置文件
 使用[gen-env-config.html](gen-env-config.html)生成配置文件, 并放到.env.demo中
 2. 打包
-pnpm build:win 打包windows下的安装包
+build:win:mode 打包windows下的zip包
 "build:win:mode": "node scripts/build-with-mode.js demo win"
+输出位置: /dist目录
 打包.env.demo的环境变量. 会在打包前执行scripts/build-with-mode.js替换electron-builder.yml的部分字段然后打包成zip包
 相关的配置在electron-builder.yml中.默认打包为zip压缩包. 下载后解压即可使用
 3. mini-electron
