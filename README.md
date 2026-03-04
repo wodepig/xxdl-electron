@@ -2,6 +2,33 @@
 Electron启动器, 用来下载Node项目并运行. 支持自动更新.
 框架使用的是[electron-vite](https://cn.electron-vite.org/guide/introduction.html)
 自动更新服务提供者: [UpgradeLink](http://upgrade.toolsetlink.com/)
+## 本地开发
+1. 安装依赖
+pnpm install
+2. 生成环境变量
+根据gen-env-config.html生成环境变量文件., 复制到.env文件中.
+3. 确保dist_server目录存在
+启动时程序检查dist_server是否存在, 如果不存在则解压dist.zip到dist_server目录下.
+如果存在就启动dist_server目录下的index.mjs文件.
+如果dist.zip不存在, 会通过https://api.upgrade.toolsetlink.com/v1/file/download?fileKey=${import.meta.env.VITE_UL_CONF_FILEKEY!}下载默认的dist.zip
+> 可以通过pnpm create nuxt 初始化一个项目, pnpm build 打包项目后, 压缩成dist.zip放到本项目根目录下
+4. 启动
+pnpm dev
+默认打开electron窗口, 初始化会价值
+
+
+`/src/main/index.ts/runInitialization`是入口函数
+
+
+
+
+**下载electron失败**
+如果在下载electron失败, 可能是网络问题. 请检查网络是否正常, 或者使用代理下载.clash开虚拟网卡+代理.
+可以单独运行 node node_modules\electron\install.js(未测试)
+
+
+
+
 ## 使用
 Nuxt或Next全栈项目开发后, 打包并构建. 然后把构建物上传到UpgradeLink的文件升级服务中.
 根据环境变量配置应用的信息.
