@@ -3,7 +3,7 @@ import { join } from 'path'
 import log from 'electron-log/main'
 import { LogFileWatcher } from './log-utils'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
-import { startInitialize,deleteAppData, cleanupServerProcess, addLog2Vue, sendLatestLogToMainWindow, sleep, getAppDir } from './utils'
+import { startInitialize,deleteAppData, cleanupServerProcess, addLog2Vue, sendLatestLogToMainWindow, sleep, getAppDir,isPortInUse } from './utils'
 import { getConfValue, setConfValue, clearConf, getEnvConf } from '../main/conf'
 import { createMainWindow, showMessageBox, ensureMenuCreated } from './windowUtils'
 
@@ -247,6 +247,16 @@ app.whenReady().then(async () => {
       // console.log('show-message', message, type)
     }
   )
+
+  // 检查端口是否被占用
+  ipcMain.handle('check-port-in-use', async (_event, port: number) => {
+    try {
+      const inUse = await isPortInUse(port)
+      return { success: true, inUse }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
 })
 
 // In this file you can include the rest of your app's specific main process

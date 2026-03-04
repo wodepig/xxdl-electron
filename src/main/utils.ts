@@ -696,27 +696,43 @@ const extractPortFromUrl = (url: string): number => {
     throw new Error(`无效的 URL: ${url}`)
   }
 }
+// 检查端口是否被占用（同时检测 127.0.0.1, 0.0.0.0, ::1 和 ::）
+export const isPortInUse = async (port: number): Promise<boolean> => {
+  // 同时检查本地回环和所有接口
+  const hosts = ['127.0.0.1', '0.0.0.0', '::1', '::'];
 
-// 检查端口是否被占用
-const isPortInUse = (port: number): Promise<boolean> => {
+  // 使用 Promise.all 进行并发检查
+  const results = await Promise.all(
+    hosts.map(host => checkPortOnHost(port, host))
+  );
+
+  // 如果任一地址返回 true，即表示端口被占用
+  return results.includes(true);
+}
+
+// 在指定 host 上检查端口
+const checkPortOnHost = (port: number, host: string): Promise<boolean> => {
   return new Promise((resolve) => {
-    const server = createServer()
+    const server = createServer();
 
     server.once('error', (err: NodeJS.ErrnoException) => {
-      if (err.code === 'EADDRINUSE') {
-        resolve(true) // 端口被占用
+      if (err.code === 'EADDRINUSE' || err.code === 'EACCES') {
+        resolve(true); // 端口被占用或无权限
       } else {
-        resolve(false)
+        resolve(false); // 其他错误不一定意味着端口占用
       }
-    })
+    });
 
     server.once('listening', () => {
-      server.close()
-      resolve(false) // 端口可用
-    })
+      server.close();
+      resolve(false); // 端口可用
+    });
 
-    server.listen(port)
-  })
+    // 启动服务器时，同时支持 IPv4 和 IPv6
+    server.listen(port, host, () => {
+      resolve(false); // 端口可用，服务器正常监听
+    });
+  });
 }
 
 // 查找可用端口

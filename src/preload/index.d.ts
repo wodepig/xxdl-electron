@@ -31,6 +31,7 @@ type RendererAPI = {
   getSettings: () => Promise<Settings>
   saveSettings: (settings: Settings) => Promise<{ success: boolean; error?: string }>
   showMessage: (message: string, type?: 'info' | 'error' | 'warning' | 'success') => Promise<void>
+  checkPortInUse: (port: number) => Promise<{ success: boolean; inUse?: boolean; error?: string }>
 }
 
 declare global {

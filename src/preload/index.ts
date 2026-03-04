@@ -129,6 +129,11 @@ const api = {
   // 显示消息框
   showMessage: (message: string, type: 'info' | 'error' | 'warning' | 'success' = 'info') => {
     return ipcRenderer.invoke('show-message', message, type)
+  },
+
+  // 检查端口是否被占用
+  checkPortInUse: (port: number): Promise<{ success: boolean; inUse?: boolean; error?: string }> => {
+    return ipcRenderer.invoke('check-port-in-use', port)
   }
 }
 

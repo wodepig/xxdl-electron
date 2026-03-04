@@ -7,6 +7,8 @@ const appIcon = ref('')
 const nowMsg = ref('正在初始化...')
 const progress = ref(0)
 const authorInfo = ref<AuthorInfo>({})
+const testPort = ref(3000)
+const portCheckResult = ref<string>('')
 // 计算图片 URL（支持通过 VITE_AUTHOR_WX_IMG 切换）
 const iconUrl = computed(() => {
   const url = resolveIconFromEnv(appIcon.value)
@@ -70,6 +72,25 @@ onMounted(() => {
     }
   }, 90)
 })
+
+// 测试端口占用检查
+const handleCheckPort = async (): Promise<void> => {
+  if (!window.api?.checkPortInUse) {
+    portCheckResult.value = 'API 不可用'
+    return
+  }
+  portCheckResult.value = '检查中...'
+  try {
+    const result = await window.api.checkPortInUse(testPort.value)
+    if (result.success) {
+      portCheckResult.value = result.inUse ? `端口 ${testPort.value} 已被占用` : `端口 ${testPort.value} 可用`
+    } else {
+      portCheckResult.value = `检查失败: ${result.error}`
+    }
+  } catch (error) {
+    portCheckResult.value = `检查出错: ${(error as Error).message}`
+  }
+}
 
 
 </script>
@@ -145,6 +166,28 @@ onMounted(() => {
 
         <div class="text-xs font-bold tracking-wide text-gray-700">
           Electron · 2026
+        </div>
+
+        <!-- 端口测试区域 -->
+        <div v-if="false" class="mt-6 p-4 bg-white/50 border-2 border-gray-900 rounded-lg">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-sm font-bold">端口测试:</span>
+            <input
+              v-model.number="testPort"
+              type="number"
+              class="w-24 px-2 py-1 text-sm border-2 border-gray-900 rounded"
+              placeholder="端口号"
+            />
+            <button
+              class="px-3 py-1 text-sm font-bold text-white bg-gray-900 border-2 border-gray-900 rounded hover:bg-gray-700 transition-colors"
+              @click="handleCheckPort"
+            >
+              检查端口
+            </button>
+          </div>
+          <div v-if="portCheckResult" class="text-sm font-medium text-gray-800">
+            结果: {{ portCheckResult }}
+          </div>
         </div>
       </div>
     </div>
