@@ -143,6 +143,15 @@ const api = {
 
   removeInitProgressListener: () => {
     ipcRenderer.removeAllListeners('init-progress')
+  },
+
+  // 监听应用通知
+  onAppNotification: (callback: (data: { id: string; type: 'info' | 'success' | 'warning' | 'error'; title: string; message: string; duration: number; timestamp: number }) => void) => {
+    ipcRenderer.on('app-notification', (_event, data) => callback(data))
+  },
+
+  removeAppNotificationListener: () => {
+    ipcRenderer.removeAllListeners('app-notification')
   }
 }
 

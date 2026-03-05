@@ -1,10 +1,12 @@
 <template>
   <router-view />
+  <ToastNotification />
 </template>
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import ToastNotification from './components/ToastNotification.vue'
 
 const router = useRouter()
 

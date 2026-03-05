@@ -60,6 +60,15 @@ type SystemVersion = {
   nodeVersion: string
 }
 
+type NotificationData = {
+  id: string
+  type: 'info' | 'success' | 'warning' | 'error'
+  title: string
+  message: string
+  duration: number
+  timestamp: number
+}
+
 interface Window {
   electron?: any
   api?: {
@@ -98,5 +107,7 @@ interface Window {
     ) => Promise<void>
     onInitProgress?: (callback: (payload: InitProgressPayload) => void) => void
     removeInitProgressListener?: () => void
+    onAppNotification?: (callback: (data: NotificationData) => void) => void
+    removeAppNotificationListener?: () => void
   }
 }

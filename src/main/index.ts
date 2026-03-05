@@ -6,8 +6,9 @@ import { autoUpdater } from "electron-updater"
 //@ts-ignore
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { startInitialize,deleteAppData, cleanupServerProcess, addLog2Vue, sendLatestLogToMainWindow, sleep, getAppDir,isPortInUse, sendInitProgress } from './utils'
-import { getConfValue, setConfValue, clearConf, getEnvConf } from '../main/conf'
+import { getConfValue, setConfValue, clearConf, getEnvConf } from './utils/config'
 import { createMainWindow, showMessageBox, ensureMenuCreated } from './windowUtils'
+import { showUpdateNotification, showInfoNotification, showSuccessNotification, showWarningNotification, showErrorNotification, showNotification, type NotificationType, type NotificationData } from './utils/notification'
 import { checkElectronUpdrate } from './utils/electron-update'
 
 const DEFAULT_SETTINGS = {
@@ -71,7 +72,9 @@ const runInitialization = async () => {
   
     await listingLog()
     await sleep(200)
-    await startInitialize()
+    showInfoNotification('应用初始化中...','请稍后...')
+    
+    // await startInitialize()
   } catch (error) {
     const errorMessage = `应用初始化失败: ${(error as Error).message}`
     log.warn('应用初始化失败:', error)

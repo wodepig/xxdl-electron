@@ -24,6 +24,15 @@ type InitProgressPayload = {
   message: string
 }
 
+type NotificationData = {
+  id: string
+  type: 'info' | 'success' | 'warning' | 'error'
+  title: string
+  message: string
+  duration: number
+  timestamp: number
+}
+
 type RendererAPI = {
   onUpdateLog: (callback: (log: string) => void) => void
   removeUpdateLogListener: () => void
@@ -39,6 +48,8 @@ type RendererAPI = {
   checkPortInUse: (port: number) => Promise<{ success: boolean; inUse?: boolean; error?: string }>
   onInitProgress: (callback: (payload: InitProgressPayload) => void) => void
   removeInitProgressListener: () => void
+  onAppNotification: (callback: (data: NotificationData) => void) => void
+  removeAppNotificationListener: () => void
 }
 
 declare global {

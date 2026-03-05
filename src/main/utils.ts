@@ -1,364 +1,131 @@
-import { spawn, ChildProcess, execSync } from 'child_process'
-import { is } from '@electron-toolkit/utils'
-import { join, dirname } from 'path'
-import { createServer } from 'net'
-import {unzip} from 'unzipit';
+/**
+ * @deprecated 此文件已弃用，请直接从 '@/main/utils/index' 导入
+ * 保留此文件是为了向后兼容，所有功能已迁移到 utils/ 目录下的模块
+ */
+
+// ==================== 重新导出所有功能 ====================
+
+// 端口管理
+export {
+  extractPortFromUrl,
+  checkPortOnHost,
+  isPortInUse,
+  findAvailablePort,
+  buildUrlWithPort,
+  waitForServer
+} from './utils/port'
+
+// 窗口通信
+export {
+  addLog2Vue,
+  sendLatestLogToMainWindow,
+  sendInitProgress,
+  sendDownloadProgress,
+  type DownloadProgressPayload
+} from './utils/window-comm'
+
+// 浏览器管理
+export { openBrowserWithType } from './utils/browser'
+
+// 环境变量
+export { loadEnvFile, getEnvPath } from './utils/env'
+
+// 文件解压
+export { extractZip4unzipit } from './utils/zip'
+
+// 文件下载
+export { downloadFile } from './utils/download'
+
+// 服务器管理
+export {
+  cleanupServerProcess,
+  handleNodeServer,
+  loadMainWindowUrl,
+  sleep,
+  getActualPort
+} from './utils/server'
+
+// 更新检查
+export { shouldCheckUpdate, checkUpdate, checkUpdateDetail } from './utils/update'
+
+// 文件系统工具
+export { getAppDir, deleteDir, ensureDir } from './utils/fs-utils'
+
+// 配置管理
+export {
+  getEnvConf,
+  getConfValue,
+  setConfValue,
+  clearConf,
+  deleteConfValue,
+  hasConfValue,
+  type ConfigNamespace
+} from './utils/config'
+
+// 通知
+export {
+  showUpdateNotification,
+  showInfoNotification,
+  showSuccessNotification,
+  showWarningNotification,
+  showErrorNotification,
+  showNotification,
+  type NotificationType,
+  type NotificationData
+} from './utils/notification'
+
+// ==================== 初始化流程（保留在原文件）====================
+
+import { join } from 'path'
+import { existsSync, mkdirSync } from 'fs'
 import log from 'electron-log/main'
-import { getFileUpgrade } from './ulUtils'
-import { getConfValue, setConfValue, getEnvConf } from './conf'
-import { getWindowsByTitle } from './windowUtils'
-import https from 'https'
-import http from 'http'
+import { setConfValue, getConfValue } from './utils/config'
+import { extractZip4unzipit } from './utils/zip'
+import { downloadFile } from './utils/download'
+import { checkUpdate } from './utils/update'
+import { handleNodeServer, loadMainWindowUrl, sleep, getActualPort, cleanupServerProcess } from './utils/server'
+import { buildUrlWithPort } from './utils/port'
+import { getAppDir, deleteDir } from './utils/fs-utils'
+
 const extract_dir_name = 'dist_server'
 
-import {
-  accessSync,
-  readFileSync,
-  existsSync,
-  mkdirSync,
-  writeFileSync,
-  createWriteStream,
-  rmdirSync,
-  unlinkSync,
-  statSync,
-  readdirSync
-} from 'fs'
-import { app, dialog, shell } from 'electron'
-// import StorePkg from 'electron-store';
-// import Store from 'electron-store';
-//@ts-ignore
-// const Store = StorePkg.default || StorePkg;
-// const store = new Store();
-import { isRendererReady, downloadProgressBuffer, type DownloadProgressPayload } from './index'
-
-
-
-// 启动 Node 服务
-let serverProcess: ChildProcess | null = null
-let actualPort: number | null = null
-// 清理服务器进程的函数
-export const cleanupServerProcess = (): void => {
-  if (serverProcess) {
-    try {
-      console.log('正在停止服务器进程...')
-      // 尝试优雅关闭
-      if (process.platform === 'win32') {
-        // Windows 上使用 taskkill 强制关闭
-        try {
-          const pid = serverProcess.pid
-          if (pid) {
-            execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore' })
-          }
-        } catch (error) {
-          // 如果 taskkill 失败，使用 kill
-          serverProcess.kill('SIGTERM')
-        }
-      } else {
-        // Unix 系统使用 kill
-        serverProcess.kill('SIGTERM')
-      }
-
-      // 等待进程退出
-      setTimeout(() => {
-        if (serverProcess && !serverProcess.killed) {
-          serverProcess.kill('SIGKILL')
-        }
-        serverProcess = null
-      }, 2000)
-    } catch (error) {
-      console.error('清理服务器进程失败:', error)
-      serverProcess = null
-    }
-  }
-}
-
-// 环境变量加载
-export const loadEnvFile = () => {
-  const envPath = getEnvPath()
-  if (!existsSync(envPath)) {
-    addLog2Vue('错误:.env 文件不存在:' + envPath)
-    return
-  }
-
-  try {
-    const content = readFileSync(envPath, 'utf-8')
-    parseEnvFile(content)
-    addLog2Vue('环境变量加载成功')
-  } catch (error: any) {
-    addLog2Vue('读取 .env 文件失败:' + error.message)
-  }
-  // 检查必需的环境变量
-  const envCheck = checkRequiredEnvVars()
-  if (!envCheck.valid) {
-    const message = `缺少必要的环境变量配置：\n\n${envCheck.missing.map((v) => `- ${v}`).join('\n')}\n\n请在项目根目录的 .env 文件中配置这些变量。`
-
-    dialog.showErrorBox('配置错误', message)
-    return
-  }
-}
-
-export const startInitialize = async () => {
-  // store.set('nodeStart', 'false')
+/**
+ * 启动初始化流程
+ * 这是主要的初始化入口函数
+ */
+export const startInitialize = async (): Promise<void> => {
   setConfValue('nodeStart', 'false')
+
   const appDir = getAppDir()
   const distDir = join(appDir, extract_dir_name)
   const serverPath = join(distDir, 'server', 'index.mjs')
+
+  // 处理 dist.zip（下载/检查更新/解压）
   await handleDistZip()
-  // if (true) {
-  //     return
-  // }
+
+  // 检查服务器文件是否存在
   if (!existsSync(serverPath)) {
     log.warn(`错误: 服务器文件不存在: ${serverPath}`)
     throw new Error(`服务器文件不存在: ${serverPath}`)
   }
-  await handleNodeServer()
 
-  // 更新窗口加载地址
-  const mainWindow = getWindowsByTitle(getEnvConf('VITE_APP_EXE_NAME'))
-  if (mainWindow) {
-    const finalUrl =
-      actualPort !== null && actualPort !== undefined
-        ? buildUrlWithPort(import.meta.env.VITE_UL_CONF_URL!, actualPort as number)
-        : import.meta.env.VITE_UL_CONF_URL!
-    // store.set('finalUrl', finalUrl)
-    setConfValue('finalUrl', finalUrl)
-    // const settingsStore = new Store({ name: 'settings' })
-    const startupActions = getConfValue('startupActions', [], 'settings') as string[]
-    // const startupActions = settingsStore.get('startupActions', []) as string[]
-    if (startupActions.includes('openBrowser')) {
-      const browserType = getConfValue('browserType', 'default', 'settings')
-      // settingsStore.get('browserType', 'default') as string
-      openBrowserWithType(finalUrl, browserType)
-      console.log('默认浏览器加载')
-    }
-    await sleep(100)
-    const currentWindow = getWindowsByTitle(getEnvConf('VITE_APP_EXE_NAME'))
-    if (currentWindow && !currentWindow.isDestroyed()) {
-      try {
-        currentWindow.loadURL(finalUrl)
-      } catch (error) {
-        console.error('加载URL失败:', error)
-      }
-    }
-  }
-}
-
-export const sleep = async (ms: number): Promise<void> => {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-// 启动 Node 服务
-const handleNodeServer = async () => {
-  const appDir = getAppDir()
-  const distDir = join(appDir, extract_dir_name)
-  const serverPath = join(distDir, 'server', 'index.mjs')
-  // 3. 检测端口占用并启动 Node 服务
-  // 从 URL 中提取端口
+  // 启动 Node 服务
   const originalUrl = import.meta.env.VITE_UL_CONF_URL!
-  let targetPort = extractPortFromUrl(originalUrl)
-  let targetUrl = originalUrl
+  await handleNodeServer(serverPath, originalUrl)
 
-  // 检查端口是否被占用
-  log.info(`检查端口 ${targetPort} 是否可用...`)
-  const portInUse = await isPortInUse(targetPort)
+  // 加载主窗口 URL
+  const finalUrl =
+    getActualPort() !== null
+      ? buildUrlWithPort(originalUrl, getActualPort()!)
+      : originalUrl
 
-  if (portInUse) {
-    log.warn(`端口 ${targetPort} 已被占用，正在查找可用端口...`)
-    // 查找可用端口（从原端口+1开始）
-    const newPort = await findAvailablePort(targetPort + 1)
-    log.info(`找到可用端口: ${newPort}`)
-    targetPort = newPort
-    targetUrl = buildUrlWithPort(originalUrl, newPort)
-    log.info(`使用新端口启动程序: ${targetUrl}`)
-  } else {
-    log.info(`端口 ${targetPort} 可用`)
-  }
-
-  // 启动服务器（传入端口）
-  await startServer(serverPath, targetPort)
-
-  // 4. 等待服务启动成功后加载地址
-  log.info(`等待程序就绪: ${targetUrl}, 正在打开...`)
-  await waitForServer(targetUrl)
+  await loadMainWindowUrl(finalUrl)
 }
 
 /**
- * 启动 Node 服务
- * @param serverPath 服务入口文件路径
- * @param port 可选的端口号，默认使用环境变量 PORT 或 3000
- * @returns 服务实际监听的端口号
+ * 清理程序数据
  */
-const startServer = async (serverPath: string, port?: number): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    const electronBinary = process.execPath
-    log.info(`启动程序中: ${electronBinary} ${serverPath}`)
-
-    // 准备环境变量
-    const env: NodeJS.ProcessEnv = {
-      ...process.env,
-      PYTHONIOENCODING: 'utf-8',
-      LANG: 'en_US.UTF-8',
-      LC_ALL: 'en_US.UTF-8',
-      ELECTRON_RUN_AS_NODE: '1'
-    }
-
-    if (port) {
-      env.PORT = port.toString()
-      actualPort = port
-    }
-
-    serverProcess = spawn(electronBinary, [serverPath], {
-      cwd: dirname(serverPath),
-      stdio: 'pipe',
-      env,
-      shell: false
-    })
-
-    // 设置子进程输出的编码
-    if (serverProcess.stdout) {
-      serverProcess.stdout.setEncoding('utf8')
-    }
-    if (serverProcess.stderr) {
-      serverProcess.stderr.setEncoding('utf8')
-    }
-
-    serverProcess.stdout?.on('data', (data) => {
-      // 确保输出使用 UTF-8 编码
-      const output = Buffer.isBuffer(data) ? data.toString('utf8') : String(data)
-      // 使用 Buffer 确保正确输出中文
-      log.info(output)
-      // process.stdout.write(Buffer.from(output, 'utf8'))
-    })
-
-    serverProcess.stderr?.on('data', (data) => {
-      // 确保错误输出使用 UTF-8 编码
-      const output = Buffer.isBuffer(data) ? data.toString('utf8') : String(data)
-      // 使用 Buffer 确保正确输出中文
-      log.error(output)
-      // process.stderr.write(Buffer.from(output, 'utf8'))
-    })
-
-    serverProcess.on('error', (error) => {
-      log.info('启动服务器失败:' + error.message)
-      reject(error)
-    })
-
-    // 等待一段时间确保服务启动
-    setTimeout(() => {
-      if (serverProcess && !serverProcess.killed) {
-        log.info('服务器启动成功')
-        resolve()
-      } else {
-        reject(new Error('服务器启动失败'))
-      }
-    }, 2000)
-  })
-}
-
-/**
- * 判断是否应该检查更新（根据更新频率设置）
- * @returns 是否应该检查更新
- */
-const shouldCheckUpdate = (): boolean => {
-  // const settingsStore = new Store({ name: 'settings' })
-
-  // const updateFrequency = settingsStore.get('updateFrequency', 'onStart') as string
-  const updateFrequency = getConfValue('updateFrequency', 'onStart', 'settings')
-
-  // 从不更新
-  if (updateFrequency === 'never') {
-    log.warn('注意: 更新频率已设置为"从不更新"，跳过更新检查')
-    return false
-  }
-
-  // 每次启动时更新
-  if (updateFrequency === 'onStart') {
-    return true
-  }
-
-  // 每天更新一次
-  if (updateFrequency === 'daily') {
-    // const lastCheckTime = store.get('lastUpdateCheckTime', 0) as number
-    const lastCheckTime = getConfValue('lastUpdateCheckTime', 0)
-    const now = Date.now()
-    const oneDayInMs = 24 * 60 * 60 * 1000 // 24小时的毫秒数
-    log.info('上次检查时间:', lastCheckTime)
-
-    // 如果从未检查过，或者距离上次检查已经超过24小时
-    if (lastCheckTime === 0 || now - lastCheckTime >= oneDayInMs) {
-      return true
-    } else {
-      const hoursSinceLastCheck = Math.floor((now - lastCheckTime) / (60 * 60 * 1000))
-      log.info(
-        `注意: 更新频率设置为"每天更新一次"，距离上次检查仅 ${hoursSinceLastCheck} 小时，跳过更新检查`
-      )
-      return false
-    }
-  }
-
-  // 默认行为：每次启动时更新
-  return true
-}
-
-/**
- * 检查程序更新
- * @param distVersion 当前版本号
- * @returns 是否需要清理dist目录
- */
-const checkUpdate = async (distVersion: number) => {
-  // 根据更新频率设置判断是否应该检查更新
-  if (!shouldCheckUpdate()) {
-    return false
-  }
-
-  const appDir = getAppDir()
-  const distZipPath = join(appDir, 'dist.zip')
-  log.info('检查程序更新...')
-  // 使用当前版本号检查更新
-  const res = await getFileUpgrade(
-    import.meta.env.VITE_UL_CONF_AK!,
-    import.meta.env.VITE_UL_CONF_SK!,
-    import.meta.env.VITE_UL_CONF_FILEKEY!,
-    distVersion
-  )
-  console.log(JSON.stringify(res))
-
-  // 更新检查完成后，更新最后检查时间（用于 daily 模式）
-  // const settingsStore = new Store({ name: 'settings' })
-  // const updateFrequency = settingsStore.get('updateFrequency', 'onStart') as string
-  const updateFrequency = getConfValue('updateFrequency', 'onStart', 'settings')
-  if (updateFrequency === 'daily') {
-    setConfValue('lastUpdateCheckTime', Date.now(), 'settings')
-    // store.set('lastUpdateCheckTime', Date.now())
-  }
-
-  if (res && res.code === 200) {
-    // 检查是否有新版本
-    const newVersionCode = res.data.versionCode
-    if (newVersionCode > distVersion) {
-      log.info(
-        `发现新版本:${distVersion} -> ${newVersionCode},更新内容: ${res.data.promptUpgradeContent}`
-      )
-      const distUrl = res.data.urlPath
-      await downloadFile(distUrl, distZipPath)
-      setConfValue('distVersion', newVersionCode)
-      // store.set('distVersion', newVersionCode)
-      return true
-    } else {
-      log.info(`当前已是最新版本: ${distVersion}`)
-    }
-  } else if (res && res.code === 0) {
-    log.info('没有新版本')
-  } else {
-    log.info('检查更新失败，使用当前版本')
-  }
-  return false
-}
-
-/**
- * 清理程序目录
- */
-export const deleteAppData = async () =>{
+export const deleteAppData = async (): Promise<void> => {
   log.info('清理程序目录...')
   cleanupServerProcess()
   await deleteDir(extract_dir_name)
@@ -366,20 +133,22 @@ export const deleteAppData = async () =>{
 }
 
 /**
- * 处理dist.zip
- * @param distZipPath 程序压缩包路径
+ * 处理 dist.zip 文件
+ * 包括：首次下载、检查更新、解压
  */
-const handleDistZip = async () => {
+const handleDistZip = async (): Promise<void> => {
   log.debug('[handleDistZip] 开始执行...')
   let clearDistPath = false
+
   const appDir = getAppDir()
   const distZipPath = join(appDir, 'dist.zip')
   const distDir = join(appDir, extract_dir_name)
   const serverPath = join(distDir, 'server', 'index.mjs')
+
   // 从配置中读取 distVersion，如果不存在则设置为 1
   let distVersion = getConfValue('distVersion', 1)
   log.debug(`[handleDistZip] 当前版本号: ${distVersion}`)
-  
+
   try {
     // 如果不存在 dist.zip，首次下载
     if (!existsSync(distZipPath)) {
@@ -397,11 +166,13 @@ const handleDistZip = async () => {
     log.error('[handleDistZip] 下载/检查更新阶段出错:', error)
     throw error
   }
-  
-  // 2. 解压到 dist 文件夹
+
+  // 解压到 dist 文件夹
   log.debug('[handleDistZip] 进入解压阶段...')
-  log.debug(`[handleDistZip] clearDistPath: ${clearDistPath}, serverPath存在: ${existsSync(serverPath)}`)
-  
+  log.debug(
+    `[handleDistZip] clearDistPath: ${clearDistPath}, serverPath存在: ${existsSync(serverPath)}`
+  )
+
   if (clearDistPath || !existsSync(serverPath)) {
     if (clearDistPath) {
       log.debug('[handleDistZip] 开始清理dist文件夹...')
@@ -413,9 +184,9 @@ const handleDistZip = async () => {
         throw error
       }
     }
-    
+
     log.debug('[handleDistZip] 开始解压程序到: ' + distDir)
-    
+
     if (!existsSync(distDir)) {
       log.debug('[handleDistZip] distDir 不存在，创建目录...')
       try {
@@ -426,10 +197,10 @@ const handleDistZip = async () => {
         throw error
       }
     }
-    
+
     log.debug('[handleDistZip] 开始调用 extractZip4unzipit...')
     log.debug(`[handleDistZip] 解压参数 - 源文件: ${distZipPath}, 目标目录: ${distDir}`)
-    
+
     try {
       await extractZip4unzipit(distZipPath, distDir)
       log.info('[handleDistZip] extractZip4unzipit 解压完成')
@@ -440,678 +211,6 @@ const handleDistZip = async () => {
   } else {
     log.debug('[handleDistZip] 程序目录已存在，跳过解压')
   }
-  
+
   log.debug('[handleDistZip] 执行完成')
-}
-
-/**
- * 递归删除目录或文件
- * @param folderName 相对于应用目录的文件夹或文件名
- */
-const deleteDir = async (folderName: string) => {
-  const appDir = getAppDir()
-  const targetPath = join(appDir, folderName)
-
-  if (!existsSync(targetPath)) return
-  const stat = statSync(targetPath)
-
-  if (stat.isDirectory()) {
-    // 先删除目录内的所有文件和子目录
-    const files = readdirSync(targetPath)
-    for (const file of files) {
-      const curPath = join(targetPath, file)
-      const childStat = statSync(curPath)
-      if (childStat.isDirectory()) {
-        deleteDir(join(folderName, file))
-      } else {
-        unlinkSync(curPath)
-      }
-    }
-    // 删除空目录
-    rmdirSync(targetPath)
-  } else {
-    log.info('开始清理' + folderName + '文件')
-    // 是文件直接删除
-    unlinkSync(targetPath)
-  }
-}
-/**
- * 向 日志组件 添加日志, 如果需要记录日志到文件, 直接调用log.xx方法
- * @param msg
- */
-export const addLog2Vue = (msg: string): void => {
-  // const mainWindow = getMainWindow()
-  const logWindows = getWindowsByTitle('日志')
-
-  if (logWindows && !logWindows.isDestroyed()) {
-    logWindows.webContents.send('log-message', msg)
-  } else {
-    console.log(msg)
-  }
-}
-
-/**
- * 向主窗口发送最新日志消息
- * @param msg
- */
-export const sendLatestLogToMainWindow = (msg: string): void => {
-  const mainWindow = getWindowsByTitle(getEnvConf('VITE_APP_EXE_NAME'))
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('latest-log', msg)
-  }
-}
-// 发送下载进度
-const sendDownloadProgress = (payload: DownloadProgressPayload): void => {
-  sendInitProgress( payload.progress,'正在下载程序:')
-}
-
-// 发送初始化进度
-export const sendInitProgress = (progress: number, message: string): void => {
-  const mainWindow = getWindowsByTitle(getEnvConf('VITE_APP_EXE_NAME'))
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('init-progress', { progress, message })
-  }
-}
-
-// 获取程序运行目录
-export const getAppDir = (): string => {
-  if (is.dev) {
-    return join(__dirname, '../../')
-  }
-  return join(app.getAppPath(), '../')
-}
-
-/**
- * 下载文件
- * @param url 下载地址
- * @param destPath 保存路径
- * @returns
- */
-const downloadFile = async (url: string, destPath: string, retryCount = 0): Promise<void> => {
-  const MAX_RETRIES = 3
-  const TIMEOUT_MS = 300000 // 5分钟超时
-
-  log.info(`[downloadFile] 开始下载，URL: ${url}`)
-  log.info(`[downloadFile] 目标路径: ${destPath}`)
-  log.info(`[downloadFile] 当前重试次数: ${retryCount}/${MAX_RETRIES}`)
-
-  return new Promise((resolve, reject) => {
-    const isHttps = url.startsWith('https:')
-    const protocol = isHttps ? https : http
-
-    let file: ReturnType<typeof createWriteStream>
-    let downloadedBytes = 0
-    let totalBytes = 0
-    let lastProgressLog = Date.now()
-    let timeoutId: NodeJS.Timeout
-
-    // 清理函数
-    const cleanup = () => {
-      if (timeoutId) clearTimeout(timeoutId)
-      try {
-        if (file) file.close()
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    // 设置超时
-    const resetTimeout = () => {
-      if (timeoutId) clearTimeout(timeoutId)
-      timeoutId = setTimeout(() => {
-        log.error(`[downloadFile] 下载超时 (${TIMEOUT_MS}ms)，已下载: ${downloadedBytes}/${totalBytes} bytes`)
-        cleanup()
-        sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
-
-        // 尝试重试
-        if (retryCount < MAX_RETRIES) {
-          log.info(`[downloadFile] 尝试第 ${retryCount + 1} 次重试...`)
-          downloadFile(url, destPath, retryCount + 1).then(resolve).catch(reject)
-        } else {
-          reject(new Error(`下载超时，已重试 ${MAX_RETRIES} 次`))
-        }
-      }, TIMEOUT_MS)
-    }
-
-    try {
-      file = createWriteStream(destPath)
-      sendDownloadProgress({ visible: true, progress: 0, isDownloading: true })
-      resetTimeout()
-    } catch (error) {
-      log.error('[downloadFile] 创建文件流失败:', error)
-      reject(error)
-      return
-    }
-
-    // 对于 HTTPS 请求，忽略证书验证错误
-    const requestOptions: https.RequestOptions = isHttps
-      ? {
-          rejectUnauthorized: false,
-          timeout: TIMEOUT_MS
-        }
-      : {
-          timeout: TIMEOUT_MS
-        }
-
-    log.debug(`[downloadFile] 使用 ${isHttps ? 'HTTPS' : 'HTTP'} 协议下载`)
-
-    const req = protocol.get(url, requestOptions, (response) => {
-      log.debug(`[downloadFile] 收到响应，状态码: ${response.statusCode}`)
-
-      if (response.statusCode === 301 || response.statusCode === 302) {
-        log.debug(`[downloadFile] 检测到重定向，新URL: ${response.headers.location}`)
-        cleanup()
-        downloadFile(response.headers.location!, destPath, retryCount).then(resolve).catch(reject)
-        return
-      }
-
-      if (response.statusCode !== 200) {
-        cleanup()
-        sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
-        reject(new Error(`下载失败: HTTP ${response.statusCode}`))
-        return
-      }
-
-      const contentLengthHeader = response.headers['content-length']
-      totalBytes = contentLengthHeader
-        ? parseInt(
-            Array.isArray(contentLengthHeader) ? contentLengthHeader[0] : contentLengthHeader,
-            10
-          )
-        : 0
-      log.info(`[downloadFile] 文件总大小: ${totalBytes} bytes (${(totalBytes / 1024 / 1024).toFixed(2)} MB)`)
-
-      response.on('data', (chunk: Buffer) => {
-        downloadedBytes += chunk.length
-        resetTimeout() // 重置超时计时器
-
-        // 每5秒或每10%打印一次进度日志
-        const now = Date.now()
-        const progress = totalBytes > 0 ? Math.min(100, Math.round((downloadedBytes / totalBytes) * 100)) : 0
-
-        if (now - lastProgressLog > 5000 || progress % 10 === 0) {
-          // log.info(`[downloadFile] 下载进度: ${progress}% (${downloadedBytes}/${totalBytes} bytes)`)
-          lastProgressLog = now
-        }
-
-        sendDownloadProgress({ visible: true, progress, isDownloading: true })
-      })
-
-      response.on('error', (err) => {
-        log.error('[downloadFile] 响应流错误:', err)
-        cleanup()
-        sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
-
-        // 尝试重试
-        if (retryCount < MAX_RETRIES) {
-          log.debug(`[downloadFile] 响应错误，尝试第 ${retryCount + 1} 次重试...`)
-          downloadFile(url, destPath, retryCount + 1).then(resolve).catch(reject)
-        } else {
-          reject(err)
-        }
-      })
-
-      response.pipe(file)
-
-      file.on('finish', () => {
-        cleanup()
-        log.info(`[downloadFile] 文件写入完成: ${destPath}`)
-        log.info(`[downloadFile] 实际下载大小: ${downloadedBytes} bytes`)
-
-        // 验证文件大小
-        if (totalBytes > 0 && downloadedBytes !== totalBytes) {
-          log.error(`[downloadFile] 文件大小不匹配! 期望: ${totalBytes}, 实际: ${downloadedBytes}`)
-
-          if (retryCount < MAX_RETRIES) {
-            log.debug(`[downloadFile] 文件不完整，尝试第 ${retryCount + 1} 次重试...`)
-            downloadFile(url, destPath, retryCount + 1).then(resolve).catch(reject)
-            return
-          }
-        }
-
-        sendDownloadProgress({ visible: true, progress: 100, isDownloading: false })
-        setTimeout(() => {
-          sendDownloadProgress({ visible: false, progress: 100, isDownloading: false })
-        }, 800)
-        resolve()
-      })
-
-      file.on('error', (err) => {
-        log.error('[downloadFile] 文件写入错误:', err)
-        cleanup()
-        sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
-
-        if (retryCount < MAX_RETRIES) {
-          log.debug(`[downloadFile] 写入错误，尝试第 ${retryCount + 1} 次重试...`)
-          downloadFile(url, destPath, retryCount + 1).then(resolve).catch(reject)
-        } else {
-          reject(err)
-        }
-      })
-    })
-
-    req.on('error', (err: NodeJS.ErrnoException) => {
-      log.error('[downloadFile] 请求错误:', err.message)
-      cleanup()
-      sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
-
-      // 检查是否是证书相关错误
-      if (err.message && (err.message.includes('certificate') || err.message.includes('CERT'))) {
-        log.debug(`[downloadFile] 检测到证书错误，尝试重试...`)
-        if (isHttps && retryCount < MAX_RETRIES) {
-          downloadFile(url, destPath, retryCount + 1).then(resolve).catch(reject)
-          return
-        }
-      }
-
-      // 尝试重试
-      if (retryCount < MAX_RETRIES) {
-        log.debug(`[downloadFile] 请求错误，尝试第 ${retryCount + 1} 次重试...`)
-        downloadFile(url, destPath, retryCount + 1).then(resolve).catch(reject)
-      } else {
-        reject(err)
-      }
-    })
-
-    req.on('timeout', () => {
-      log.error('[downloadFile] 请求超时')
-      req.destroy()
-      cleanup()
-      sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
-
-      if (retryCount < MAX_RETRIES) {
-        log.debug(`[downloadFile] 超时，尝试第 ${retryCount + 1} 次重试...`)
-        downloadFile(url, destPath, retryCount + 1).then(resolve).catch(reject)
-      } else {
-        reject(new Error('下载请求超时'))
-      }
-    })
-  })
-}
-
-/**
- * 使用 unzipit 解压 ZIP 文件到指定目录
- * @param zipPath ZIP文件的绝对/相对路径
- * @param extractTo 解压目标目录路径
- * @returns Promise<void>
- */
-const extractZip4unzipit = async (absoluteZipPath: string, absoluteExtractPath: string): Promise<void> => {
-  try {
-    log.debug('[extractZip4unzipit] 开始解压文件...')
-    log.debug(`[extractZip4unzipit] ZIP路径: ${absoluteZipPath}`)
-    log.debug(`[extractZip4unzipit] 解压目标: ${absoluteExtractPath}`)
-
-    // 2. 检查 ZIP 文件是否存在
-    log.debug('[extractZip4unzipit] 检查ZIP文件是否存在...')
-    try {
-      await accessSync(absoluteZipPath);
-      log.debug('[extractZip4unzipit] ZIP文件存在')
-    } catch (err: any) {
-      log.error('[extractZip4unzipit] ZIP文件不存在:', absoluteZipPath)
-      throw new Error(`ZIP 文件不存在: ${absoluteZipPath}`);
-    }
-
-    // 3. 读取 ZIP 文件内容为 Buffer
-    log.debug('[extractZip4unzipit] 开始读取ZIP文件内容...')
-    let zipBuffer: Buffer
-    try {
-      zipBuffer = await readFileSync(absoluteZipPath);
-      log.debug(`[extractZip4unzipit] ZIP文件读取完成，大小: ${zipBuffer.length} bytes`)
-    } catch (error) {
-      log.error('[extractZip4unzipit] 读取ZIP文件失败:', error)
-      throw error
-    }
-
-    // 4. 使用 unzipit 解析 ZIP 文件
-    log.debug('[extractZip4unzipit] 开始解析ZIP文件...')
-    let entries: any
-    try {
-      const result = await unzip(zipBuffer);
-      entries = result.entries
-      const entryCount = Object.keys(entries).length
-      log.debug(`[extractZip4unzipit] ZIP解析完成，包含 ${entryCount} 个条目`)
-    } catch (error) {
-      log.error('[extractZip4unzipit] 解析ZIP文件失败:', error)
-      throw error
-    }
-
-    // 5. 遍历所有文件/文件夹并解压
-    log.debug('[extractZip4unzipit] 开始解压条目...')
-    let processedCount = 0
-    for (const [entryPath, entry] of Object.entries(entries)) {
-      processedCount++
-      log.debug(`[extractZip4unzipit] 处理条目 ${processedCount}/${Object.keys(entries).length}: ${entryPath}`)
-      
-      // 拼接目标文件/文件夹的绝对路径
-      const targetPath = join(absoluteExtractPath, entryPath);
-      // @ts-ignore
-      if (entry.isDirectory) {
-        // 如果是文件夹，创建目录（递归创建父目录，已存在则忽略）
-        log.debug(`[extractZip4unzipit] 创建目录: ${targetPath}`)
-        try {
-          await mkdirSync(targetPath, { recursive: true });
-        } catch (error) {
-          log.error(`[extractZip4unzipit] 创建目录失败: ${targetPath}`, error)
-          throw error
-        }
-      } else {
-        // 如果是文件：先创建父目录，再写入文件内容
-        const parentDir = dirname(targetPath);
-        log.debug(`[extractZip4unzipit] 创建父目录: ${parentDir}`)
-        try {
-          await mkdirSync(parentDir, { recursive: true });
-        } catch (error) {
-          log.error(`[extractZip4unzipit] 创建父目录失败: ${parentDir}`, error)
-          throw error
-        }
-
-        // 读取 ZIP 内文件内容并写入目标路径
-        log.debug(`[extractZip4unzipit] 读取文件内容: ${entryPath}`)
-        let fileContent: ArrayBuffer
-        try {
-          // @ts-ignore
-          fileContent = await entry.arrayBuffer();
-          log.debug(`[extractZip4unzipit] 文件内容读取完成，大小: ${fileContent.byteLength} bytes`)
-        } catch (error) {
-          log.error(`[extractZip4unzipit] 读取文件内容失败: ${entryPath}`, error)
-          throw error
-        }
-        
-        log.debug(`[extractZip4unzipit] 写入文件: ${targetPath}`)
-        try {
-          await writeFileSync(targetPath, Buffer.from(fileContent));
-          log.debug(`[extractZip4unzipit] 文件写入完成: ${targetPath}`)
-        } catch (error) {
-          log.error(`[extractZip4unzipit] 写入文件失败: ${targetPath}`, error)
-          throw error
-        }
-      }
-    }
-
-    log.info(`[extractZip4unzipit] ZIP文件已成功解压到: ${absoluteExtractPath}`);
-  } catch (error) {
-    // 统一捕获并抛出异常，方便调用方处理
-    log.error('[extractZip4unzipit] 解压过程中发生错误:', error)
-    const errMsg = error instanceof Error ? error.message : '解压过程中发生未知错误';
-    throw new Error(`解压失败: ${errMsg}`);
-  }
-};
-
-
-// 从 URL 中提取端口
-const extractPortFromUrl = (url: string): number => {
-  try {
-    const urlObj = new URL(url)
-    if (urlObj.port) {
-      return parseInt(urlObj.port, 10)
-    }
-    // 如果没有指定端口，根据协议返回默认端口
-    return urlObj.protocol === 'https:' ? 443 : 80
-  } catch (error) {
-    throw new Error(`无效的 URL: ${url}`)
-  }
-}
-// 检查端口是否被占用（同时检测 127.0.0.1, 0.0.0.0, ::1 和 ::）
-export const isPortInUse = async (port: number): Promise<boolean> => {
-  // 同时检查本地回环和所有接口
-  const hosts = ['127.0.0.1', '0.0.0.0', '::1', '::'];
-
-  // 使用 Promise.all 进行并发检查
-  const results = await Promise.all(
-    hosts.map(host => checkPortOnHost(port, host))
-  );
-
-  // 如果任一地址返回 true，即表示端口被占用
-  return results.includes(true);
-}
-
-// 在指定 host 上检查端口
-const checkPortOnHost = (port: number, host: string): Promise<boolean> => {
-  return new Promise((resolve) => {
-    const server = createServer();
-
-    server.once('error', (err: NodeJS.ErrnoException) => {
-      if (err.code === 'EADDRINUSE' || err.code === 'EACCES') {
-        resolve(true); // 端口被占用或无权限
-      } else {
-        resolve(false); // 其他错误不一定意味着端口占用
-      }
-    });
-
-    server.once('listening', () => {
-      server.close();
-      resolve(false); // 端口可用
-    });
-
-    // 启动服务器时，同时支持 IPv4 和 IPv6
-    server.listen(port, host, () => {
-      resolve(false); // 端口可用，服务器正常监听
-    });
-  });
-}
-
-// 查找可用端口
-const findAvailablePort = async (startPort: number, maxAttempts: number = 100): Promise<number> => {
-  for (let i = 0; i < maxAttempts; i++) {
-    const port = startPort + i
-    const inUse = await isPortInUse(port)
-    if (!inUse) {
-      return port
-    }
-  }
-  throw new Error(`无法找到可用端口，已尝试 ${maxAttempts} 次`)
-}
-
-// 构建新的 URL（替换端口）
-const buildUrlWithPort = (originalUrl: string, newPort: number): string => {
-  try {
-    const urlObj = new URL(originalUrl)
-    urlObj.port = newPort.toString()
-    return urlObj.toString()
-  } catch (error) {
-    throw new Error(`无法构建新 URL: ${originalUrl}`)
-  }
-}
-
-// 等待服务就绪
-const waitForServer = async (url: string, maxRetries: number = 30): Promise<void> => {
-  const urlObj = new URL(url)
-  const hostname = urlObj.hostname
-  const port = urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80)
-
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const protocol = urlObj.protocol === 'https:' ? https : http
-        const req = protocol.get(`${urlObj.protocol}//${hostname}:${port}`, (res) => {
-          if (res.statusCode === 200 || res.statusCode === 404) {
-            resolve()
-          } else {
-            reject(new Error(`HTTP ${res.statusCode}`))
-          }
-        })
-        req.on('error', reject)
-        req.setTimeout(2000, () => {
-          req.destroy()
-          reject(new Error('请求超时'))
-        })
-      })
-      log.info('程序已就绪')
-      setConfValue('nodeStart', true)
-      // store.set('nodeStart', 'true')
-      return
-    } catch (error) {
-      if (i === maxRetries - 1) {
-        log.warn(`程序启动超时，请检查程序是否已启动`)
-        throw new Error('程序启动超时')
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-    }
-  }
-}
-
-const parseEnvFile = (content: string): void => {
-  const lines = content.split('\n')
-
-  for (const line of lines) {
-    const trimmed = line.trim()
-    // 跳过注释和空行
-    if (!trimmed || trimmed.startsWith('#')) continue
-
-    const match = trimmed.match(/^([^=]+)=(.*)$/)
-    if (match) {
-      const key = match[1].trim()
-      const value = match[2].trim()
-      // 加载到 process.env
-      process.env[key] = value
-    }
-  }
-}
-
-// 环境变量加载
-const getEnvPath = (): string => {
-  // 在开发环境中使用项目根目录，在生产环境中使用app路径
-  if (is.dev) {
-    return join(__dirname, '../../.env')
-  }
-  return join(app.getAppPath(), '.env')
-}
-
-// 检查是否缺少必要的环境变量
-const checkRequiredEnvVars = (): { valid: boolean; missing: string[] } => {
-  const requiredVars = ['UL_CONF_AK', 'UL_CONF_SK', 'UL_CONF_FILEKEY', 'UL_CONF_URL']
-  const missing: string[] = []
-
-  for (const varName of requiredVars) {
-    const value = process.env[varName]
-    console.log(varName, value)
-
-    if (!value || value.trim() === '') {
-      missing.push(varName)
-    }
-  }
-
-  return {
-    valid: missing.length === 0,
-    missing
-  }
-}
-
-// 根据浏览器类型打开 URL
-export function openBrowserWithType(url: string, browserType: string = 'default'): void {
-  const targetUrl = url || 'http://localhost:3000'
-
-  if (browserType === 'default' || !browserType) {
-    // 使用默认浏览器
-    shell.openExternal(targetUrl)
-    return
-  }
-
-  // 根据平台和浏览器类型获取浏览器路径
-  let browserPath = ''
-  const platform = process.platform
-
-  if (platform === 'win32') {
-    // Windows 平台
-    const commonPaths: { [key: string]: string[] } = {
-      chrome: [
-        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-        join(process.env.LOCALAPPDATA || '', 'Google\\Chrome\\Application\\chrome.exe')
-      ],
-      edge: [
-        'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-        'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-        join(process.env.LOCALAPPDATA || '', 'Microsoft\\Edge\\Application\\msedge.exe')
-      ],
-      '360': [
-        'C:\\Users\\' +
-          (process.env.USERNAME || '') +
-          '\\AppData\\Roaming\\360se6\\Application\\360se.exe',
-        'C:\\Program Files\\360\\360se\\360se.exe',
-        'C:\\Program Files (x86)\\360\\360se\\360se.exe'
-      ],
-      firefox: [
-        'C:\\Program Files\\Mozilla Firefox\\firefox.exe',
-        'C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe'
-      ],
-      safari: [] // Safari 主要在 macOS 上
-    }
-
-    const paths = commonPaths[browserType.toLowerCase()] || []
-    for (const path of paths) {
-      if (existsSync(path)) {
-        browserPath = path
-        break
-      }
-    }
-  } else if (platform === 'darwin') {
-    // macOS 平台 - 使用应用程序名称
-    const appNames: { [key: string]: string[] } = {
-      chrome: ['Google Chrome', 'Google Chrome.app'],
-      edge: ['Microsoft Edge', 'Microsoft Edge.app'],
-      firefox: ['Firefox', 'Firefox.app'],
-      safari: ['Safari', 'Safari.app'],
-      '360': [] // 360 浏览器在 macOS 上不常见
-    }
-
-    const names = appNames[browserType.toLowerCase()] || []
-    let opened = false
-    for (const appName of names) {
-      try {
-        // 使用 open -a 命令打开应用程序
-        spawn('open', ['-a', appName, targetUrl], { detached: true })
-        opened = true
-        break
-      } catch (e) {
-        // 继续尝试下一个
-      }
-    }
-    if (!opened) {
-      // 如果找不到指定的浏览器，使用默认浏览器
-      console.warn(`未找到浏览器: ${browserType}，使用默认浏览器`)
-      shell.openExternal(targetUrl)
-    }
-    return
-  } else {
-    // Linux 平台 - 直接尝试启动，如果失败则使用默认浏览器
-    const commonCommands: { [key: string]: string[] } = {
-      chrome: ['google-chrome', 'chromium-browser', 'chromium'],
-      edge: ['microsoft-edge', 'microsoft-edge-stable'],
-      firefox: ['firefox'],
-      safari: [], // Safari 不在 Linux 上
-      '360': [] // 360 浏览器在 Linux 上不常见
-    }
-
-    const commands = commonCommands[browserType.toLowerCase()] || []
-    if (commands.length > 0) {
-      // 尝试使用第一个命令启动
-      try {
-        spawn(commands[0], [targetUrl], { detached: true })
-        return
-      } catch (e) {
-        // 如果失败，尝试其他命令或使用默认浏览器
-        console.warn(`无法启动浏览器 ${commands[0]}:`, e)
-      }
-    }
-    // 如果找不到指定的浏览器，使用默认浏览器
-    console.warn(`未找到浏览器: ${browserType}，使用默认浏览器`)
-    shell.openExternal(targetUrl)
-    return
-  }
-
-  // Windows 平台：如果找到了浏览器路径，启动它
-  if (browserPath) {
-    try {
-      spawn(browserPath, [targetUrl], { detached: true })
-    } catch (error) {
-      console.error(`无法启动浏览器 ${browserType}:`, error)
-      // 降级到默认浏览器
-      shell.openExternal(targetUrl)
-    }
-  } else {
-    // 如果找不到指定的浏览器，使用默认浏览器
-    console.warn(`未找到浏览器: ${browserType}，使用默认浏览器`)
-    shell.openExternal(targetUrl)
-  }
 }
