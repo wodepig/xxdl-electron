@@ -134,6 +134,15 @@ const api = {
   // 检查端口是否被占用
   checkPortInUse: (port: number): Promise<{ success: boolean; inUse?: boolean; error?: string }> => {
     return ipcRenderer.invoke('check-port-in-use', port)
+  },
+
+  // 监听初始化进度
+  onInitProgress: (callback: (payload: { progress: number; message: string }) => void) => {
+    ipcRenderer.on('init-progress', (_event, payload) => callback(payload))
+  },
+
+  removeInitProgressListener: () => {
+    ipcRenderer.removeAllListeners('init-progress')
   }
 }
 

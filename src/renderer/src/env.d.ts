@@ -45,6 +45,11 @@ type DownloadProgressPayload = {
   isDownloading: boolean
 }
 
+type InitProgressPayload = {
+  progress: number
+  message: string
+}
+
 type SystemVersion = {
   platform: string
   arch: string
@@ -91,5 +96,7 @@ interface Window {
       message: string,
       type?: 'info' | 'error' | 'warning' | 'success'
     ) => Promise<void>
+    onInitProgress?: (callback: (payload: InitProgressPayload) => void) => void
+    removeInitProgressListener?: () => void
   }
 }

@@ -5,7 +5,7 @@ import { LogFileWatcher } from './log-utils'
 import { autoUpdater } from "electron-updater"
 //@ts-ignore
 import { electronApp, optimizer } from '@electron-toolkit/utils'
-import { startInitialize,deleteAppData, cleanupServerProcess, addLog2Vue, sendLatestLogToMainWindow, sleep, getAppDir,isPortInUse } from './utils'
+import { startInitialize,deleteAppData, cleanupServerProcess, addLog2Vue, sendLatestLogToMainWindow, sleep, getAppDir,isPortInUse, sendInitProgress } from './utils'
 import { getConfValue, setConfValue, clearConf, getEnvConf } from '../main/conf'
 import { createMainWindow, showMessageBox, ensureMenuCreated } from './windowUtils'
 import { checkElectronUpdrate } from './utils/electron-update'
@@ -68,6 +68,7 @@ const runInitialization = async () => {
   if (initializationStarted) return
   initializationStarted = true
   try {
+  
     await listingLog()
     await sleep(200)
     await startInitialize()
@@ -143,6 +144,7 @@ try{
 
   // 等待窗口准备好后再处理
   mainWindow?.once('ready-to-show', async () => {
+    sendInitProgress(10, '正在启动日志服务...')
     log.info('主窗口 ready-to-show 事件触发（index.ts）')
 
     // 先显示窗口
@@ -155,10 +157,10 @@ try{
       log.info('尝试创建菜单（第二次，延迟100ms）')
       ensureMenuCreated(mainWindow)
     }, 100)
-    // 检查electron更新
-    await checkElectronUpdrate()
+    // 检查electron更新(不可用)
+    // await checkElectronUpdrate()
     // 开始初始化
-    // await runInitialization()
+    await runInitialization()
   })
 
   // Set app user model id for windows

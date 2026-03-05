@@ -91,15 +91,21 @@ console.log('app_ver',app.getVersion());
 const downUpdate = async () =>{
      const appVersion = app.getVersion()
     try {
-
-    autoUpdater.updateConfigPath = join(getAppDir(), "dev-update.yml")
+    if (!app.isPackaged) { 
+    Object.defineProperty(app, 'isPackaged', { 
+        get: () => true, 
+    }); 
+}
+    // autoUpdater.updateConfigPath = join(getAppDir(), "dev-update.yml")
    
     // 打印相关参数
     console.log('当前启动器版本号:', appVersion);
     const electronKey = getEnvConf('VITE_UL_CONF_APP_ELKEY')
      const ak = getEnvConf('VITE_UL_CONF_APP_AK')
       const sk = getEnvConf('VITE_UL_CONF_APP_SK')
-    console.log('electron更新密钥:', electronKey);
+    console.log('electron_key:', electronKey);
+        console.log('ak:', ak);
+        console.log('sk:', sk);
     if(!electronKey){
       return {
         error: '未配置electron更新密钥',
@@ -110,7 +116,9 @@ const downUpdate = async () =>{
     const platform = 'windows'
     const arch = 'x64' 
         const FeedURL = `https://api.upgrade.toolsetlink.com/v1/electron/upgrade?electronKey=${electronKey}&versionName=${appVersion}&appointVersionName=&devModelKey=&devKey=&platform=${platform}&arch=${arch}`;
-    autoUpdater.setFeedURL({
+    console.log('FeedURL:', FeedURL);
+    
+        autoUpdater.setFeedURL({
       url: FeedURL,
       provider: 'generic',
     });
@@ -121,7 +129,7 @@ const downUpdate = async () =>{
     const result = await autoUpdater.checkForUpdates();
 
     // 打印返回结果
-    console.log(result);
+    console.log('result响应',result);
 
     autoUpdater.setFeedURL({
       url: result.updateInfo.path,

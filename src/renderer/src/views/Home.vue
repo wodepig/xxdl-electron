@@ -60,17 +60,36 @@ const attachLatestLogListener = (): void => {
   })
 }
 
+// 监听初始化进度
+const attachInitProgressListener = (): void => {
+  if (!window.api?.onInitProgress) {
+    console.warn('onInitProgress API 不可用')
+    return
+  }
+
+  window.api.onInitProgress((payload: { progress: number; message: string }) => {
+    progress.value = payload.progress
+    if (payload.message) {
+      nowMsg.value = payload.message
+    }
+  })
+}
+
 onMounted(() => {
   getAppInfo()
   attachLatestLogListener()
+  attachInitProgressListener()
 
-  const timer = setInterval(() => {
-    if (progress.value >= 100) {
-      clearInterval(timer)
-    } else {
-      progress.value += 3 + Math.random() * 6
-    }
-  }, 90)
+  // 如果没有主进程更新，使用默认的模拟进度
+  // const timer = setInterval(() => {
+  //   if (progress.value >= 100) {
+  //     clearInterval(timer)
+  //   } else {
+  //     // 只有在没有收到主进程进度更新时才自动增加
+  //     // 实际项目中可以添加一个标志位来判断
+  //     progress.value += 0.5
+  //   }
+  // }, 100)
 })
 
 // 测试端口占用检查

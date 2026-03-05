@@ -370,38 +370,78 @@ export const deleteAppData = async () =>{
  * @param distZipPath 程序压缩包路径
  */
 const handleDistZip = async () => {
-  log.info('检查并下载程序...')
+  log.debug('[handleDistZip] 开始执行...')
   let clearDistPath = false
   const appDir = getAppDir()
   const distZipPath = join(appDir, 'dist.zip')
   const distDir = join(appDir, extract_dir_name)
   const serverPath = join(distDir, 'server', 'index.mjs')
   // 从配置中读取 distVersion，如果不存在则设置为 1
-  // let distVersion = store.get('distVersion', 1) as number
   let distVersion = getConfValue('distVersion', 1)
-  log.info(`当前版本号: ${distVersion}`)
-  // 如果不存在 dist.zip，首次下载
-  if (!existsSync(distZipPath)) {
-    log.info('程序不存在，首次下载...')
-    const distUrl = `https://api.upgrade.toolsetlink.com/v1/file/download?fileKey=${import.meta.env.VITE_UL_CONF_FILEKEY!}`
-    await downloadFile(distUrl, distZipPath)
-  } else {
-    clearDistPath = await checkUpdate(distVersion)
+  log.debug(`[handleDistZip] 当前版本号: ${distVersion}`)
+  
+  try {
+    // 如果不存在 dist.zip，首次下载
+    if (!existsSync(distZipPath)) {
+      log.info('[handleDistZip] dist.zip 不存在，开始首次下载...')
+      const distUrl = `https://api.upgrade.toolsetlink.com/v1/file/download?fileKey=${import.meta.env.VITE_UL_CONF_FILEKEY!}`
+      log.debug(`[handleDistZip] 下载URL: ${distUrl}`)
+      await downloadFile(distUrl, distZipPath)
+      log.info('[handleDistZip] 首次下载完成')
+    } else {
+      log.debug('[handleDistZip] dist.zip 已存在，检查更新...')
+      clearDistPath = await checkUpdate(distVersion)
+      log.debug(`[handleDistZip] 检查更新完成，clearDistPath: ${clearDistPath}`)
+    }
+  } catch (error) {
+    log.error('[handleDistZip] 下载/检查更新阶段出错:', error)
+    throw error
   }
+  
   // 2. 解压到 dist 文件夹
+  log.debug('[handleDistZip] 进入解压阶段...')
+  log.debug(`[handleDistZip] clearDistPath: ${clearDistPath}, serverPath存在: ${existsSync(serverPath)}`)
+  
   if (clearDistPath || !existsSync(serverPath)) {
     if (clearDistPath) {
-      log.info('开始清理dist文件夹')
-      await deleteDir(extract_dir_name)
+      log.debug('[handleDistZip] 开始清理dist文件夹...')
+      try {
+        await deleteDir(extract_dir_name)
+        log.debug('[handleDistZip] 清理dist文件夹完成')
+      } catch (error) {
+        log.error('[handleDistZip] 清理dist文件夹出错:', error)
+        throw error
+      }
     }
-    log.info('开始解压程序到...' + distDir)
+    
+    log.debug('[handleDistZip] 开始解压程序到: ' + distDir)
+    
     if (!existsSync(distDir)) {
-      mkdirSync(distDir, { recursive: true })
+      log.debug('[handleDistZip] distDir 不存在，创建目录...')
+      try {
+        mkdirSync(distDir, { recursive: true })
+        log.debug('[handleDistZip] 目录创建完成')
+      } catch (error) {
+        log.error('[handleDistZip] 创建目录出错:', error)
+        throw error
+      }
     }
-    await extractZip4unzipit(distZipPath, distDir)
+    
+    log.debug('[handleDistZip] 开始调用 extractZip4unzipit...')
+    log.debug(`[handleDistZip] 解压参数 - 源文件: ${distZipPath}, 目标目录: ${distDir}`)
+    
+    try {
+      await extractZip4unzipit(distZipPath, distDir)
+      log.info('[handleDistZip] extractZip4unzipit 解压完成')
+    } catch (error) {
+      log.error('[handleDistZip] extractZip4unzipit 解压出错:', error)
+      throw error
+    }
   } else {
-    log.info('程序目录已存在，跳过解压')
+    log.debug('[handleDistZip] 程序目录已存在，跳过解压')
   }
+  
+  log.debug('[handleDistZip] 执行完成')
 }
 
 /**
@@ -462,13 +502,15 @@ export const sendLatestLogToMainWindow = (msg: string): void => {
 }
 // 发送下载进度
 const sendDownloadProgress = (payload: DownloadProgressPayload): void => {
+  sendInitProgress( payload.progress,'正在下载程序:')
+}
+
+// 发送初始化进度
+export const sendInitProgress = (progress: number, message: string): void => {
   const mainWindow = getWindowsByTitle(getEnvConf('VITE_APP_EXE_NAME'))
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    downloadProgressBuffer.push(payload)
-    return
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('init-progress', { progress, message })
   }
-  // mainWindow.webContents.send('download-progress', payload)
-  mainWindow.webContents.send('latest-log', '更新进度:' + payload.progress + '%')
 }
 
 // 获取程序运行目录
@@ -485,60 +527,148 @@ export const getAppDir = (): string => {
  * @param destPath 保存路径
  * @returns
  */
-const downloadFile = async (url: string, destPath: string): Promise<void> => {
-  log.info(`开始下载新版本...`)
+const downloadFile = async (url: string, destPath: string, retryCount = 0): Promise<void> => {
+  const MAX_RETRIES = 3
+  const TIMEOUT_MS = 300000 // 5分钟超时
+
+  log.info(`[downloadFile] 开始下载，URL: ${url}`)
+  log.info(`[downloadFile] 目标路径: ${destPath}`)
+  log.info(`[downloadFile] 当前重试次数: ${retryCount}/${MAX_RETRIES}`)
+
   return new Promise((resolve, reject) => {
     const isHttps = url.startsWith('https:')
     const protocol = isHttps ? https : http
 
-    const file = createWriteStream(destPath)
-    sendDownloadProgress({ visible: true, progress: 0, isDownloading: true })
+    let file: ReturnType<typeof createWriteStream>
+    let downloadedBytes = 0
+    let totalBytes = 0
+    let lastProgressLog = Date.now()
+    let timeoutId: NodeJS.Timeout
 
-    // 对于 HTTPS 请求，忽略证书验证错误（包括证书过期）
-    // 同时禁用代理，直接连接
-    const requestOptions = isHttps
-      ? {
-          rejectUnauthorized: false
+    // 清理函数
+    const cleanup = () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      try {
+        if (file) file.close()
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    // 设置超时
+    const resetTimeout = () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        log.error(`[downloadFile] 下载超时 (${TIMEOUT_MS}ms)，已下载: ${downloadedBytes}/${totalBytes} bytes`)
+        cleanup()
+        sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
+
+        // 尝试重试
+        if (retryCount < MAX_RETRIES) {
+          log.info(`[downloadFile] 尝试第 ${retryCount + 1} 次重试...`)
+          downloadFile(url, destPath, retryCount + 1).then(resolve).catch(reject)
+        } else {
+          reject(new Error(`下载超时，已重试 ${MAX_RETRIES} 次`))
         }
-      : {}
+      }, TIMEOUT_MS)
+    }
+
+    try {
+      file = createWriteStream(destPath)
+      sendDownloadProgress({ visible: true, progress: 0, isDownloading: true })
+      resetTimeout()
+    } catch (error) {
+      log.error('[downloadFile] 创建文件流失败:', error)
+      reject(error)
+      return
+    }
+
+    // 对于 HTTPS 请求，忽略证书验证错误
+    const requestOptions: https.RequestOptions = isHttps
+      ? {
+          rejectUnauthorized: false,
+          timeout: TIMEOUT_MS
+        }
+      : {
+          timeout: TIMEOUT_MS
+        }
+
+    log.debug(`[downloadFile] 使用 ${isHttps ? 'HTTPS' : 'HTTP'} 协议下载`)
 
     const req = protocol.get(url, requestOptions, (response) => {
+      log.debug(`[downloadFile] 收到响应，状态码: ${response.statusCode}`)
+
       if (response.statusCode === 301 || response.statusCode === 302) {
-        // 处理重定向
-        downloadFile(response.headers.location!, destPath).then(resolve).catch(reject)
+        log.debug(`[downloadFile] 检测到重定向，新URL: ${response.headers.location}`)
+        cleanup()
+        downloadFile(response.headers.location!, destPath, retryCount).then(resolve).catch(reject)
         return
       }
 
       if (response.statusCode !== 200) {
-        file.close()
+        cleanup()
         sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
         reject(new Error(`下载失败: HTTP ${response.statusCode}`))
         return
       }
 
       const contentLengthHeader = response.headers['content-length']
-      const totalBytes = contentLengthHeader
+      totalBytes = contentLengthHeader
         ? parseInt(
             Array.isArray(contentLengthHeader) ? contentLengthHeader[0] : contentLengthHeader,
             10
           )
         : 0
-      let downloadedBytes = 0
+      log.info(`[downloadFile] 文件总大小: ${totalBytes} bytes (${(totalBytes / 1024 / 1024).toFixed(2)} MB)`)
 
       response.on('data', (chunk: Buffer) => {
         downloadedBytes += chunk.length
+        resetTimeout() // 重置超时计时器
 
-        if (totalBytes > 0) {
-          const progress = Math.min(100, Math.round((downloadedBytes / totalBytes) * 100))
-          sendDownloadProgress({ visible: true, progress, isDownloading: true })
+        // 每5秒或每10%打印一次进度日志
+        const now = Date.now()
+        const progress = totalBytes > 0 ? Math.min(100, Math.round((downloadedBytes / totalBytes) * 100)) : 0
+
+        if (now - lastProgressLog > 5000 || progress % 10 === 0) {
+          // log.info(`[downloadFile] 下载进度: ${progress}% (${downloadedBytes}/${totalBytes} bytes)`)
+          lastProgressLog = now
+        }
+
+        sendDownloadProgress({ visible: true, progress, isDownloading: true })
+      })
+
+      response.on('error', (err) => {
+        log.error('[downloadFile] 响应流错误:', err)
+        cleanup()
+        sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
+
+        // 尝试重试
+        if (retryCount < MAX_RETRIES) {
+          log.debug(`[downloadFile] 响应错误，尝试第 ${retryCount + 1} 次重试...`)
+          downloadFile(url, destPath, retryCount + 1).then(resolve).catch(reject)
+        } else {
+          reject(err)
         }
       })
 
       response.pipe(file)
 
       file.on('finish', () => {
-        file.close()
-        log.info(`程序下载完成: ${destPath}`)
+        cleanup()
+        log.info(`[downloadFile] 文件写入完成: ${destPath}`)
+        log.info(`[downloadFile] 实际下载大小: ${downloadedBytes} bytes`)
+
+        // 验证文件大小
+        if (totalBytes > 0 && downloadedBytes !== totalBytes) {
+          log.error(`[downloadFile] 文件大小不匹配! 期望: ${totalBytes}, 实际: ${downloadedBytes}`)
+
+          if (retryCount < MAX_RETRIES) {
+            log.debug(`[downloadFile] 文件不完整，尝试第 ${retryCount + 1} 次重试...`)
+            downloadFile(url, destPath, retryCount + 1).then(resolve).catch(reject)
+            return
+          }
+        }
+
         sendDownloadProgress({ visible: true, progress: 100, isDownloading: false })
         setTimeout(() => {
           sendDownloadProgress({ visible: false, progress: 100, isDownloading: false })
@@ -547,87 +677,53 @@ const downloadFile = async (url: string, destPath: string): Promise<void> => {
       })
 
       file.on('error', (err) => {
-        file.close()
+        log.error('[downloadFile] 文件写入错误:', err)
+        cleanup()
         sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
-        reject(err)
+
+        if (retryCount < MAX_RETRIES) {
+          log.debug(`[downloadFile] 写入错误，尝试第 ${retryCount + 1} 次重试...`)
+          downloadFile(url, destPath, retryCount + 1).then(resolve).catch(reject)
+        } else {
+          reject(err)
+        }
       })
     })
 
     req.on('error', (err: NodeJS.ErrnoException) => {
+      log.error('[downloadFile] 请求错误:', err.message)
+      cleanup()
+      sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
+
       // 检查是否是证书相关错误
       if (err.message && (err.message.includes('certificate') || err.message.includes('CERT'))) {
-        log.info(`警告: 检测到证书错误（${err.message}），已忽略并继续下载`)
-        // 对于证书错误，尝试重新请求（忽略证书验证）
-        if (isHttps) {
-          const retryReq = https.get(
-            url,
-            {
-              rejectUnauthorized: false,
-              agent: false // 禁用代理
-            },
-            (response) => {
-              if (response.statusCode === 301 || response.statusCode === 302) {
-                downloadFile(response.headers.location!, destPath).then(resolve).catch(reject)
-                return
-              }
-
-              if (response.statusCode !== 200) {
-                file.close()
-                sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
-                reject(new Error(`下载失败: HTTP ${response.statusCode}`))
-                return
-              }
-
-              const contentLengthHeader = response.headers['content-length']
-              const totalBytes = contentLengthHeader
-                ? parseInt(
-                    Array.isArray(contentLengthHeader)
-                      ? contentLengthHeader[0]
-                      : contentLengthHeader,
-                    10
-                  )
-                : 0
-              let downloadedBytes = 0
-
-              response.on('data', (chunk: Buffer) => {
-                downloadedBytes += chunk.length
-                if (totalBytes > 0) {
-                  const progress = Math.min(100, Math.round((downloadedBytes / totalBytes) * 100))
-                  sendDownloadProgress({ visible: true, progress, isDownloading: true })
-                }
-              })
-
-              response.pipe(file)
-
-              file.on('finish', () => {
-                file.close()
-                log.info(`程序下载完成: ${destPath}`)
-                sendDownloadProgress({ visible: true, progress: 100, isDownloading: false })
-                setTimeout(() => {
-                  sendDownloadProgress({ visible: false, progress: 100, isDownloading: false })
-                }, 800)
-                resolve()
-              })
-
-              file.on('error', (fileErr) => {
-                file.close()
-                sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
-                reject(fileErr)
-              })
-            }
-          )
-
-          retryReq.on('error', (retryErr) => {
-            sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
-            reject(retryErr)
-          })
-        } else {
-          sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
-          reject(err)
+        log.debug(`[downloadFile] 检测到证书错误，尝试重试...`)
+        if (isHttps && retryCount < MAX_RETRIES) {
+          downloadFile(url, destPath, retryCount + 1).then(resolve).catch(reject)
+          return
         }
+      }
+
+      // 尝试重试
+      if (retryCount < MAX_RETRIES) {
+        log.debug(`[downloadFile] 请求错误，尝试第 ${retryCount + 1} 次重试...`)
+        downloadFile(url, destPath, retryCount + 1).then(resolve).catch(reject)
       } else {
-        sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
         reject(err)
+      }
+    })
+
+    req.on('timeout', () => {
+      log.error('[downloadFile] 请求超时')
+      req.destroy()
+      cleanup()
+      sendDownloadProgress({ visible: false, progress: 0, isDownloading: false })
+
+      if (retryCount < MAX_RETRIES) {
+        log.debug(`[downloadFile] 超时，尝试第 ${retryCount + 1} 次重试...`)
+        downloadFile(url, destPath, retryCount + 1).then(resolve).catch(reject)
+      } else {
+        reject(new Error('下载请求超时'))
       }
     })
   })
@@ -641,43 +737,101 @@ const downloadFile = async (url: string, destPath: string): Promise<void> => {
  */
 const extractZip4unzipit = async (absoluteZipPath: string, absoluteExtractPath: string): Promise<void> => {
   try {
-    log.info('开始解压文件,来自日志>>>')
+    log.debug('[extractZip4unzipit] 开始解压文件...')
+    log.debug(`[extractZip4unzipit] ZIP路径: ${absoluteZipPath}`)
+    log.debug(`[extractZip4unzipit] 解压目标: ${absoluteExtractPath}`)
 
     // 2. 检查 ZIP 文件是否存在
+    log.debug('[extractZip4unzipit] 检查ZIP文件是否存在...')
     try {
       await accessSync(absoluteZipPath);
+      log.debug('[extractZip4unzipit] ZIP文件存在')
     } catch (err: any) {
+      log.error('[extractZip4unzipit] ZIP文件不存在:', absoluteZipPath)
       throw new Error(`ZIP 文件不存在: ${absoluteZipPath}`);
     }
 
     // 3. 读取 ZIP 文件内容为 Buffer
-    const zipBuffer = await readFileSync(absoluteZipPath);
+    log.debug('[extractZip4unzipit] 开始读取ZIP文件内容...')
+    let zipBuffer: Buffer
+    try {
+      zipBuffer = await readFileSync(absoluteZipPath);
+      log.debug(`[extractZip4unzipit] ZIP文件读取完成，大小: ${zipBuffer.length} bytes`)
+    } catch (error) {
+      log.error('[extractZip4unzipit] 读取ZIP文件失败:', error)
+      throw error
+    }
 
     // 4. 使用 unzipit 解析 ZIP 文件
-    const { entries } = await unzip(zipBuffer);
+    log.debug('[extractZip4unzipit] 开始解析ZIP文件...')
+    let entries: any
+    try {
+      const result = await unzip(zipBuffer);
+      entries = result.entries
+      const entryCount = Object.keys(entries).length
+      log.debug(`[extractZip4unzipit] ZIP解析完成，包含 ${entryCount} 个条目`)
+    } catch (error) {
+      log.error('[extractZip4unzipit] 解析ZIP文件失败:', error)
+      throw error
+    }
 
     // 5. 遍历所有文件/文件夹并解压
+    log.debug('[extractZip4unzipit] 开始解压条目...')
+    let processedCount = 0
     for (const [entryPath, entry] of Object.entries(entries)) {
+      processedCount++
+      log.debug(`[extractZip4unzipit] 处理条目 ${processedCount}/${Object.keys(entries).length}: ${entryPath}`)
+      
       // 拼接目标文件/文件夹的绝对路径
       const targetPath = join(absoluteExtractPath, entryPath);
-
+      // @ts-ignore
       if (entry.isDirectory) {
         // 如果是文件夹，创建目录（递归创建父目录，已存在则忽略）
-        await mkdirSync(targetPath, { recursive: true });
+        log.debug(`[extractZip4unzipit] 创建目录: ${targetPath}`)
+        try {
+          await mkdirSync(targetPath, { recursive: true });
+        } catch (error) {
+          log.error(`[extractZip4unzipit] 创建目录失败: ${targetPath}`, error)
+          throw error
+        }
       } else {
         // 如果是文件：先创建父目录，再写入文件内容
         const parentDir = dirname(targetPath);
-        await mkdirSync(parentDir, { recursive: true });
+        log.debug(`[extractZip4unzipit] 创建父目录: ${parentDir}`)
+        try {
+          await mkdirSync(parentDir, { recursive: true });
+        } catch (error) {
+          log.error(`[extractZip4unzipit] 创建父目录失败: ${parentDir}`, error)
+          throw error
+        }
 
         // 读取 ZIP 内文件内容并写入目标路径
-        const fileContent = await entry.arrayBuffer();
-        await writeFileSync(targetPath, Buffer.from(fileContent));
+        log.debug(`[extractZip4unzipit] 读取文件内容: ${entryPath}`)
+        let fileContent: ArrayBuffer
+        try {
+          // @ts-ignore
+          fileContent = await entry.arrayBuffer();
+          log.debug(`[extractZip4unzipit] 文件内容读取完成，大小: ${fileContent.byteLength} bytes`)
+        } catch (error) {
+          log.error(`[extractZip4unzipit] 读取文件内容失败: ${entryPath}`, error)
+          throw error
+        }
+        
+        log.debug(`[extractZip4unzipit] 写入文件: ${targetPath}`)
+        try {
+          await writeFileSync(targetPath, Buffer.from(fileContent));
+          log.debug(`[extractZip4unzipit] 文件写入完成: ${targetPath}`)
+        } catch (error) {
+          log.error(`[extractZip4unzipit] 写入文件失败: ${targetPath}`, error)
+          throw error
+        }
       }
     }
 
-    console.log(`ZIP 文件已成功解压到: ${absoluteExtractPath}`);
+    log.info(`[extractZip4unzipit] ZIP文件已成功解压到: ${absoluteExtractPath}`);
   } catch (error) {
     // 统一捕获并抛出异常，方便调用方处理
+    log.error('[extractZip4unzipit] 解压过程中发生错误:', error)
     const errMsg = error instanceof Error ? error.message : '解压过程中发生未知错误';
     throw new Error(`解压失败: ${errMsg}`);
   }

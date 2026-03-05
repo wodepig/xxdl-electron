@@ -19,6 +19,11 @@ type Settings = {
   browserType?: 'default' | 'chrome' | 'edge' | '360' | 'firefox' | 'safari' | string
 }
 
+type InitProgressPayload = {
+  progress: number
+  message: string
+}
+
 type RendererAPI = {
   onUpdateLog: (callback: (log: string) => void) => void
   removeUpdateLogListener: () => void
@@ -32,6 +37,8 @@ type RendererAPI = {
   saveSettings: (settings: Settings) => Promise<{ success: boolean; error?: string }>
   showMessage: (message: string, type?: 'info' | 'error' | 'warning' | 'success') => Promise<void>
   checkPortInUse: (port: number) => Promise<{ success: boolean; inUse?: boolean; error?: string }>
+  onInitProgress: (callback: (payload: InitProgressPayload) => void) => void
+  removeInitProgressListener: () => void
 }
 
 declare global {
