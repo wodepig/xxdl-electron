@@ -2,7 +2,7 @@ import { join, dirname } from 'path'
 import { app, dialog, shell } from 'electron'
 import { autoUpdater } from "electron-updater"
 import { getConfValue, setConfValue, getEnvConf } from './config'
-import { getElectronUpgrade } from './upgrade-link'
+import { getElectronUpgrade } from './node-app-update'
 //@ts-ignore
 import { is } from '@electron-toolkit/utils'
 

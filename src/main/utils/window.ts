@@ -49,9 +49,30 @@ const isMainWindow = (name: string): boolean => name === MAIN_WINDOW_NAME
 
 /**
  * 获取主窗口实例
+ * 优先通过标题匹配，如果失败则返回第一个非子窗口
  */
 export const getMainWindow = (): BrowserWindow | undefined => {
-  return getWindowsByTitle(MAIN_WINDOW_NAME)
+  // 首先尝试通过标题获取
+  const windowByTitle = getWindowsByTitle(MAIN_WINDOW_NAME)
+  if (windowByTitle && !windowByTitle.isDestroyed()) {
+    return windowByTitle
+  }
+
+  // 如果标题匹配失败，尝试找到第一个非子窗口（主窗口通常没有父窗口）
+  const allWindows = BrowserWindow.getAllWindows()
+  const mainWindow = allWindows.find(win => {
+    // 排除已销毁的窗口
+    if (win.isDestroyed()) return false
+    // 排除有父窗口的子窗口
+    if (win.getParentWindow()) return false
+    return true
+  })
+
+  if (mainWindow) {
+    log.debug(`通过父窗口检测找到主窗口，标题: ${mainWindow.getTitle()}`)
+  }
+
+  return mainWindow
 }
 
 /**

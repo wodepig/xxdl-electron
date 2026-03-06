@@ -155,6 +155,9 @@ export const handleNodeServer = async (serverPath: string, originalUrl: string):
   // 等待服务启动成功后加载地址
   log.info(`等待程序就绪: ${targetUrl}, 正在打开...`)
   await waitForServer(targetUrl)
+
+  // 标记 Node 服务已启动
+  setConfValue('nodeStart', 'true')
 }
 
 /**

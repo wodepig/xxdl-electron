@@ -74,7 +74,7 @@ const runInitialization = async () => {
     await sleep(200)
     showInfoNotification('应用初始化中...','请稍后...')
     
-    // await startInitialize()
+    await startInitialize()
   } catch (error) {
     const errorMessage = `应用初始化失败: ${(error as Error).message}`
     log.warn('应用初始化失败:', error)

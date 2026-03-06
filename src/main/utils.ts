@@ -56,8 +56,16 @@ export {
   getActualPort
 } from './utils/server'
 
-// 更新检查
-export { shouldCheckUpdate, checkUpdate, checkUpdateDetail } from './utils/update'
+// Node 应用更新 (Nuxt/Next 全栈应用)
+export {
+  shouldCheckUpdate,
+  checkUpdate,
+  checkUpdateDetail,
+  getElectronUpgrade,
+  getFileUpgrade,
+  reportAppEvent,
+  type UpgradeResponse
+} from './utils/node-app-update'
 
 // 文件系统工具
 export { getAppDir, deleteDir, ensureDir } from './utils/fs-utils'
@@ -88,14 +96,6 @@ export {
 // 日志监听
 export { LogFileWatcher } from './utils/log-watcher'
 
-// UpgradeLink API
-export {
-  getElectronUpgrade,
-  getFileUpgrade,
-  reportAppEvent,
-  type UpgradeResponse
-} from './utils/upgrade-link'
-
 // Electron 自动更新
 export {
   checkElectronUpdrate,
@@ -110,7 +110,7 @@ import log from 'electron-log/main'
 import { setConfValue, getConfValue } from './utils/config'
 import { extractZip4unzipit } from './utils/zip'
 import { downloadFile } from './utils/download'
-import { checkUpdate } from './utils/update'
+import { checkUpdate } from './utils/node-app-update'
 import { handleNodeServer, loadMainWindowUrl, sleep, getActualPort, cleanupServerProcess } from './utils/server'
 import { buildUrlWithPort } from './utils/port'
 import { getAppDir, deleteDir } from './utils/fs-utils'

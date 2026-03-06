@@ -49,8 +49,18 @@ export {
   getActualPort
 } from './server'
 
-// ==================== 更新检查 ====================
-export { shouldCheckUpdate, checkUpdate, checkUpdateDetail } from './update'
+// ==================== Node 应用更新 (Nuxt/Next 全栈应用) ====================
+export {
+  // 更新检查
+  shouldCheckUpdate,
+  checkUpdate,
+  checkUpdateDetail,
+  // UpgradeLink API
+  getElectronUpgrade,
+  getFileUpgrade,
+  reportAppEvent,
+  type UpgradeResponse
+} from './node-app-update'
 
 // ==================== 文件系统工具 ====================
 export { getAppDir, deleteDir, ensureDir } from './fs-utils'
@@ -80,14 +90,6 @@ export {
 
 // ==================== 日志监听 ====================
 export { LogFileWatcher } from './log-watcher'
-
-// ==================== UpgradeLink API ====================
-export {
-  getElectronUpgrade,
-  getFileUpgrade,
-  reportAppEvent,
-  type UpgradeResponse
-} from './upgrade-link'
 
 // ==================== Electron 自动更新 ====================
 export {
