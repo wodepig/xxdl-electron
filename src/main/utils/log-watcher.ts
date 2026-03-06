@@ -2,11 +2,14 @@ import fs from 'fs';
 import readline from 'readline';
 import { EventEmitter } from 'events';
 
-// 定义日志监听器类，封装监听逻辑和资源管理
+/**
+ * 日志文件监听器类
+ * 封装日志文件监听逻辑和资源管理
+ */
 export class LogFileWatcher extends EventEmitter {
-  private watcher: fs.FSWatcher | null = null; // 文件监听实例
-  private filePath: string; // 日志文件路径
-  private fileSize: number = 0; // 记录上次读取的文件大小（用于获取新增内容）
+  private watcher: fs.FSWatcher | null = null;
+  private filePath: string;
+  private fileSize: number = 0;
 
   constructor(filePath: string) {
     super();
@@ -14,27 +17,23 @@ export class LogFileWatcher extends EventEmitter {
   }
 
   /**
-   * 第一步：初始化日志监听（点击“日志”按钮调用）
+   * 初始化日志监听
    * @returns Promise<Array<string>> 前50条日志
    */
   async initWatch(): Promise<Array<string>> {
     try {
-      // 1. 先读取前50条日志并返回
-      let  first50Logs:string[] =[]
+      let first50Logs: string[] = []
       try {
-         first50Logs = await this.readLastNLogs(50);
-      }catch (err){
+        first50Logs = await this.readLastNLogs(50);
+      } catch (err) {
         console.log('读取日志错误...')
       }
-      this.emit('logReady', first50Logs); // 触发日志就绪事件
+      this.emit('logReady', first50Logs);
 
-      // 2. 获取当前文件大小（用于后续监听新增内容）
       const stats = fs.statSync(this.filePath);
       this.fileSize = stats.size;
 
-      // 3. 启动文件监听（监听文件变化）
       this.watcher = fs.watch(this.filePath, { encoding: 'utf-8' }, (eventType) => {
-        // 只处理文件内容变化（忽略重命名等事件）
         if (eventType === 'change') {
           this.readNewLogs().catch(err => {
             this.emit('error', `读取新增日志失败：${err.message}`);
@@ -60,7 +59,6 @@ export class LogFileWatcher extends EventEmitter {
    */
   private async readLastNLogs(n = 50): Promise<string[]> {
     return new Promise((resolve, reject) => {
-      // 1️⃣ 文件不存在 → 直接返回空
       if (!fs.existsSync(this.filePath)) {
         resolve([])
         return
@@ -68,7 +66,6 @@ export class LogFileWatcher extends EventEmitter {
 
       fs.stat(this.filePath, (err, stats) => {
         if (err || stats.size === 0) {
-          // 2️⃣ 文件为空 or stat 失败 → 空数组
           resolve([])
           return
         }
@@ -78,7 +75,7 @@ export class LogFileWatcher extends EventEmitter {
         }
 
         const fileSize = stats.size
-        const READ_SIZE = 32 * 1024 // 32KB，够 50 行日志用
+        const READ_SIZE = 32 * 1024
         const start = Math.max(0, fileSize - READ_SIZE)
         const length = fileSize - start
         if (length <= 0) {
@@ -114,27 +111,24 @@ export class LogFileWatcher extends EventEmitter {
   }
 
   /**
-   * 读取文件新增的日志内容（文件变动时调用）
+   * 读取文件新增的日志内容
    */
   private async readNewLogs(): Promise<void> {
     return new Promise((resolve, reject) => {
-      // 先获取最新文件大小
       fs.stat(this.filePath, (err, stats) => {
         if (err) return reject(err);
         const newSize = stats.size;
 
-        // 如果文件大小变小（日志轮转/清空），重置文件大小并读取前50行
         if (newSize < this.fileSize) {
           this.fileSize = 0;
           this.readLastNLogs(50).then((logs) => {
-            this.emit('newLogs', logs); // 触发新日志事件（文件重置）
+            this.emit('newLogs', logs);
             this.fileSize = newSize;
             resolve();
           }).catch(reject);
           return;
         }
 
-        // 读取新增的内容（从上次的size位置开始）
         const logs: string[] = [];
         const stream = fs.createReadStream(this.filePath, {
           start: this.fileSize,
@@ -147,17 +141,16 @@ export class LogFileWatcher extends EventEmitter {
 
         rl.on('line', (line) => {
           const trimmedLine = line.trim();
-          if (trimmedLine) { // 过滤空行
+          if (trimmedLine) {
             logs.push(trimmedLine);
           }
         });
 
         rl.on('close', () => {
           if (logs.length > 0) {
-            this.emit('newLogs', logs); // 触发新日志事件
-            // console.log('新增日志：', logs); // 自动打印新增内容
+            this.emit('newLogs', logs);
           }
-          this.fileSize = newSize; // 更新文件大小
+          this.fileSize = newSize;
           resolve();
         });
 
@@ -167,17 +160,15 @@ export class LogFileWatcher extends EventEmitter {
   }
 
   /**
-   * 清理监听资源（点击“关闭”按钮调用）
+   * 清理监听资源
    */
   cleanup(): void {
     if (this.watcher) {
-      this.watcher.close(); // 关闭文件监听
+      this.watcher.close();
       this.watcher = null;
     }
     this.fileSize = 0;
-    this.removeAllListeners(); // 移除所有事件监听
+    this.removeAllListeners();
     console.log('日志监听资源已清理');
   }
 }
-
-

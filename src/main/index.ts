@@ -1,13 +1,13 @@
 import { app, BrowserWindow, ipcMain, dialog, session } from 'electron'
 import { join } from 'path'
 import log from 'electron-log/main'
-import { LogFileWatcher } from './log-utils'
+import { LogFileWatcher } from './utils'
 import { autoUpdater } from "electron-updater"
 //@ts-ignore
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { startInitialize,deleteAppData, cleanupServerProcess, addLog2Vue, sendLatestLogToMainWindow, sleep, getAppDir,isPortInUse, sendInitProgress } from './utils'
 import { getConfValue, setConfValue, clearConf, getEnvConf } from './utils/config'
-import { createMainWindow, showMessageBox, ensureMenuCreated } from './windowUtils'
+import { createMainWindow, showMessageBox, ensureMenuCreated } from './utils'
 import { showUpdateNotification, showInfoNotification, showSuccessNotification, showWarningNotification, showErrorNotification, showNotification, type NotificationType, type NotificationData } from './utils/notification'
 import { checkElectronUpdrate } from './utils/electron-update'
 

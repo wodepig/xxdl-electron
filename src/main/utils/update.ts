@@ -1,7 +1,7 @@
 import { join } from 'path'
 import log from 'electron-log/main'
 import { getConfValue, setConfValue } from './config'
-import { getFileUpgrade } from '../ulUtils'
+import { getFileUpgrade } from './upgrade-link'
 import { downloadFile } from './download'
 
 /**

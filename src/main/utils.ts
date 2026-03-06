@@ -15,6 +15,17 @@ export {
   waitForServer
 } from './utils/port'
 
+// 窗口管理
+export {
+  createMainWindow,
+  createWindows,
+  getWindowsByTitle,
+  getMainWindow,
+  ensureMenuCreated,
+  createMenu,
+  showMessageBox
+} from './utils/window'
+
 // 窗口通信
 export {
   addLog2Vue,
@@ -73,6 +84,23 @@ export {
   type NotificationType,
   type NotificationData
 } from './utils/notification'
+
+// 日志监听
+export { LogFileWatcher } from './utils/log-watcher'
+
+// UpgradeLink API
+export {
+  getElectronUpgrade,
+  getFileUpgrade,
+  reportAppEvent,
+  type UpgradeResponse
+} from './utils/upgrade-link'
+
+// Electron 自动更新
+export {
+  checkElectronUpdrate,
+  checkForUpdates
+} from './utils/electron-update'
 
 // ==================== 初始化流程（保留在原文件）====================
 

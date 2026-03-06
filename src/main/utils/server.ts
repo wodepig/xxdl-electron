@@ -2,7 +2,7 @@ import { spawn, ChildProcess, execSync } from 'child_process'
 import { dirname } from 'path'
 import log from 'electron-log/main'
 import { getConfValue, setConfValue, getEnvConf } from './config'
-import { getWindowsByTitle } from '../windowUtils'
+import { getWindowsByTitle } from './window'
 import { openBrowserWithType } from './browser'
 import { extractPortFromUrl, isPortInUse, findAvailablePort, buildUrlWithPort, waitForServer } from './port'
 

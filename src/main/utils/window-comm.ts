@@ -1,4 +1,4 @@
-import { getWindowsByTitle } from '../windowUtils'
+import { getWindowsByTitle } from './window'
 import { getEnvConf } from './config'
 
 /**

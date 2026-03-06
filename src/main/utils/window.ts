@@ -1,9 +1,9 @@
 // 窗口和菜单工具类
 import { app, shell, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
 import { join } from 'path'
-import icon from '../../resources/icon.png?asset'
-import {getConfValue, setConfValue,getEnvConf} from './utils/config'
-import { openBrowserWithType } from './utils'
+import icon from '../../../resources/icon.png?asset'
+import { getConfValue, setConfValue, getEnvConf } from './config'
+import { openBrowserWithType } from './browser'
 import { is } from '@electron-toolkit/utils'
 import log from 'electron-log/main'
 
@@ -50,7 +50,7 @@ const isMainWindow = (name: string): boolean => name === MAIN_WINDOW_NAME
 /**
  * 获取主窗口实例
  */
-const getMainWindow = (): BrowserWindow | undefined => {
+export const getMainWindow = (): BrowserWindow | undefined => {
   return getWindowsByTitle(MAIN_WINDOW_NAME)
 }
 
@@ -453,7 +453,6 @@ export const createMenu = (mainWindow?: BrowserWindow | null): void => {
   Menu.setApplicationMenu(menu)
 }
 
-
 /**
  * 在浏览器中打开
  */
@@ -537,7 +536,6 @@ export async function showMessageBox(
     await dialog.showMessageBox(options)
   }
 }
-
 
 /**
  * 切换开发者工具（需要管理员权限）
@@ -714,7 +712,6 @@ const promptAdminPassword = (): Promise<string | null> => {
     })
   })
 }
-
 
 /**
  * 恢复窗口位置和大小

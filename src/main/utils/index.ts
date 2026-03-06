@@ -8,6 +8,17 @@ export {
   waitForServer
 } from './port'
 
+// ==================== 窗口管理 ====================
+export {
+  createMainWindow,
+  createWindows,
+  getWindowsByTitle,
+  getMainWindow,
+  ensureMenuCreated,
+  createMenu,
+  showMessageBox
+} from './window'
+
 // ==================== 窗口通信 ====================
 export {
   addLog2Vue,
@@ -66,3 +77,20 @@ export {
   type NotificationType,
   type NotificationData
 } from './notification'
+
+// ==================== 日志监听 ====================
+export { LogFileWatcher } from './log-watcher'
+
+// ==================== UpgradeLink API ====================
+export {
+  getElectronUpgrade,
+  getFileUpgrade,
+  reportAppEvent,
+  type UpgradeResponse
+} from './upgrade-link'
+
+// ==================== Electron 自动更新 ====================
+export {
+  checkElectronUpdrate,
+  checkForUpdates
+} from './electron-update'
