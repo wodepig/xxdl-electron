@@ -8,7 +8,7 @@ export {
   waitForServer
 } from './port'
 
-// ==================== 窗口管理 (包含窗口通信) ====================
+// ==================== 窗口管理 (包含窗口通信 + 通知) ====================
 export {
   createMainWindow,
   createWindows,
@@ -22,14 +22,20 @@ export {
   sendLatestLogToMainWindow,
   sendInitProgress,
   sendDownloadProgress,
-  type DownloadProgressPayload
+  type DownloadProgressPayload,
+  // 通知系统
+  showUpdateNotification,
+  showInfoNotification,
+  showSuccessNotification,
+  showWarningNotification,
+  showErrorNotification,
+  showNotification,
+  type NotificationType,
+  type NotificationData
 } from './window'
 
 // ==================== 浏览器管理 ====================
 export { openBrowserWithType } from './browser'
-
-// ==================== 环境变量 ====================
-export { loadEnvFile, getEnvPath } from './env'
 
 // ==================== 文件下载 ====================
 export { downloadFile } from './download'
@@ -64,28 +70,20 @@ export {
   extractZip4unzipit
 } from './fs-utils'
 
-// ==================== 配置管理 ====================
+// ==================== 配置管理 (conf.json + .env 环境变量) ====================
 export {
+  // 应用配置 (conf.json)
   getEnvConf,
   getConfValue,
   setConfValue,
   clearConf,
   deleteConfValue,
   hasConfValue,
-  type ConfigNamespace
+  type ConfigNamespace,
+  // 环境变量 (.env 文件)
+  loadEnvFile,
+  getEnvPath
 } from './config'
-
-// ==================== 通知 ====================
-export {
-  showUpdateNotification,
-  showInfoNotification,
-  showSuccessNotification,
-  showWarningNotification,
-  showErrorNotification,
-  showNotification,
-  type NotificationType,
-  type NotificationData
-} from './notification'
 
 // ==================== 日志监听 ====================
 export { LogFileWatcher } from './log-watcher'

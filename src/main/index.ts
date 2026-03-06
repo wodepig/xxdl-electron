@@ -8,7 +8,7 @@ import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { startInitialize,deleteAppData, cleanupServerProcess, addLog2Vue, sendLatestLogToMainWindow, sleep, getAppDir,isPortInUse, sendInitProgress } from './utils'
 import { getConfValue, setConfValue, clearConf, getEnvConf } from './utils/config'
 import { createMainWindow, showMessageBox, ensureMenuCreated } from './utils'
-import { showUpdateNotification, showInfoNotification, showSuccessNotification, showWarningNotification, showErrorNotification, showNotification, type NotificationType, type NotificationData } from './utils/notification'
+import { showUpdateNotification, showInfoNotification, showSuccessNotification, showWarningNotification, showErrorNotification, showNotification, type NotificationType, type NotificationData } from './utils/window'
 import { checkElectronUpdrate } from './utils/electron-update'
 
 const DEFAULT_SETTINGS = {
