@@ -8,7 +8,7 @@ export {
   waitForServer
 } from './port'
 
-// ==================== 窗口管理 ====================
+// ==================== 窗口管理 (包含窗口通信) ====================
 export {
   createMainWindow,
   createWindows,
@@ -16,26 +16,20 @@ export {
   getMainWindow,
   ensureMenuCreated,
   createMenu,
-  showMessageBox
-} from './window'
-
-// ==================== 窗口通信 ====================
-export {
+  showMessageBox,
+  // 窗口通信
   addLog2Vue,
   sendLatestLogToMainWindow,
   sendInitProgress,
   sendDownloadProgress,
   type DownloadProgressPayload
-} from './window-comm'
+} from './window'
 
 // ==================== 浏览器管理 ====================
 export { openBrowserWithType } from './browser'
 
 // ==================== 环境变量 ====================
 export { loadEnvFile, getEnvPath } from './env'
-
-// ==================== 文件解压 ====================
-export { extractZip4unzipit } from './zip'
 
 // ==================== 文件下载 ====================
 export { downloadFile } from './download'
@@ -62,8 +56,13 @@ export {
   type UpgradeResponse
 } from './node-app-update'
 
-// ==================== 文件系统工具 ====================
-export { getAppDir, deleteDir, ensureDir } from './fs-utils'
+// ==================== 文件系统工具 (目录操作 + ZIP解压) ====================
+export {
+  getAppDir,
+  deleteDir,
+  ensureDir,
+  extractZip4unzipit
+} from './fs-utils'
 
 // ==================== 配置管理 ====================
 export {

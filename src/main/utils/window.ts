@@ -40,6 +40,11 @@ const WINDOW_DEFAULTS = {
 // 菜单创建标志，确保只创建一次
 let isMenuCreated = false
 
+// 主窗口缓存
+let cachedMainWindow: BrowserWindow | undefined = undefined
+let lastCacheTime = 0
+const CACHE_TTL = 1000 // 缓存有效期 1 秒
+
 // ==================== 工具函数 ====================
 
 /**
@@ -50,11 +55,21 @@ const isMainWindow = (name: string): boolean => name === MAIN_WINDOW_NAME
 /**
  * 获取主窗口实例
  * 优先通过标题匹配，如果失败则返回第一个非子窗口
+ * 使用缓存机制避免频繁遍历所有窗口
  */
 export const getMainWindow = (): BrowserWindow | undefined => {
+  const now = Date.now()
+
+  // 检查缓存是否有效
+  if (cachedMainWindow && !cachedMainWindow.isDestroyed() && (now - lastCacheTime) < CACHE_TTL) {
+    return cachedMainWindow
+  }
+
   // 首先尝试通过标题获取
   const windowByTitle = getWindowsByTitle(MAIN_WINDOW_NAME)
   if (windowByTitle && !windowByTitle.isDestroyed()) {
+    cachedMainWindow = windowByTitle
+    lastCacheTime = now
     return windowByTitle
   }
 
@@ -72,7 +87,20 @@ export const getMainWindow = (): BrowserWindow | undefined => {
     log.debug(`通过父窗口检测找到主窗口，标题: ${mainWindow.getTitle()}`)
   }
 
+  // 更新缓存
+  cachedMainWindow = mainWindow
+  lastCacheTime = now
+
   return mainWindow
+}
+
+/**
+ * 清除主窗口缓存
+ * 在窗口关闭或重新创建时调用
+ */
+export const clearMainWindowCache = (): void => {
+  cachedMainWindow = undefined
+  lastCacheTime = 0
 }
 
 /**
@@ -188,6 +216,14 @@ const setupWindowEventListeners = (
 
   window.on('move', () => {
     debouncedSavePosition(window, name)
+  })
+
+  // 窗口关闭时清除缓存
+  window.on('closed', () => {
+    if (isMainWindow(name)) {
+      clearMainWindowCache()
+      log.debug('主窗口关闭，清除缓存')
+    }
   })
 }
 
@@ -748,4 +784,60 @@ function resetWindowsSizeAndPosition(title: string): void {
 
   window.setSize(size[0], size[1])
   window.setPosition(position[0], position[1])
+}
+
+// ==================== 窗口通信 ====================
+
+/**
+ * 下载进度数据类型
+ */
+export type DownloadProgressPayload = {
+  visible: boolean
+  progress: number
+  isDownloading: boolean
+}
+
+/**
+ * 向日志窗口添加日志
+ * @param msg 日志消息
+ */
+export const addLog2Vue = (msg: string): void => {
+  const logWindows = getWindowsByTitle('日志')
+
+  if (logWindows && !logWindows.isDestroyed()) {
+    logWindows.webContents.send('log-message', msg)
+  } else {
+    console.log(msg)
+  }
+}
+
+/**
+ * 向主窗口发送最新日志消息
+ * @param msg 日志消息
+ */
+export const sendLatestLogToMainWindow = (msg: string): void => {
+  const mainWindow = getMainWindow()
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('latest-log', msg)
+  }
+}
+
+/**
+ * 发送初始化进度
+ * @param progress 进度百分比 (0-100)
+ * @param message 进度消息
+ */
+export const sendInitProgress = (progress: number, message: string): void => {
+  const mainWindow = getMainWindow()
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('init-progress', { progress, message })
+  }
+}
+
+/**
+ * 发送下载进度
+ * @param payload 下载进度数据
+ */
+export const sendDownloadProgress = (payload: DownloadProgressPayload): void => {
+  sendInitProgress(payload.progress, '正在下载程序:')
 }

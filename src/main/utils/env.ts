@@ -3,7 +3,7 @@ import { join } from 'path'
 import { app, dialog } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import log from 'electron-log/main'
-import { addLog2Vue } from './window-comm'
+import { addLog2Vue } from './window'
 
 /**
  * 必需的环境变量列表

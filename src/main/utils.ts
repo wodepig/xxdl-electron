@@ -15,7 +15,7 @@ export {
   waitForServer
 } from './utils/port'
 
-// 窗口管理
+// 窗口管理 (包含窗口通信)
 export {
   createMainWindow,
   createWindows,
@@ -23,17 +23,14 @@ export {
   getMainWindow,
   ensureMenuCreated,
   createMenu,
-  showMessageBox
-} from './utils/window'
-
-// 窗口通信
-export {
+  showMessageBox,
+  // 窗口通信
   addLog2Vue,
   sendLatestLogToMainWindow,
   sendInitProgress,
   sendDownloadProgress,
   type DownloadProgressPayload
-} from './utils/window-comm'
+} from './utils/window'
 
 // 浏览器管理
 export { openBrowserWithType } from './utils/browser'
@@ -41,8 +38,13 @@ export { openBrowserWithType } from './utils/browser'
 // 环境变量
 export { loadEnvFile, getEnvPath } from './utils/env'
 
-// 文件解压
-export { extractZip4unzipit } from './utils/zip'
+// 文件系统工具 (包含ZIP解压)
+export {
+  getAppDir,
+  deleteDir,
+  ensureDir,
+  extractZip4unzipit
+} from './utils/fs-utils'
 
 // 文件下载
 export { downloadFile } from './utils/download'
@@ -67,8 +69,7 @@ export {
   type UpgradeResponse
 } from './utils/node-app-update'
 
-// 文件系统工具
-export { getAppDir, deleteDir, ensureDir } from './utils/fs-utils'
+
 
 // 配置管理
 export {
@@ -108,7 +109,7 @@ import { join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 import log from 'electron-log/main'
 import { setConfValue, getConfValue } from './utils/config'
-import { extractZip4unzipit } from './utils/zip'
+import { extractZip4unzipit } from './utils/fs-utils'
 import { downloadFile } from './utils/download'
 import { checkUpdate } from './utils/node-app-update'
 import { handleNodeServer, loadMainWindowUrl, sleep, getActualPort, cleanupServerProcess } from './utils/server'

@@ -32,9 +32,6 @@ importers:
       electron-updater:
         specifier: ^6.3.9
         version: 6.6.2
-      lodash:
-        specifier: ^4.17.23
-        version: 4.17.23
       tailwindcss:
         specifier: ^4.1.18
         version: 4.1.18

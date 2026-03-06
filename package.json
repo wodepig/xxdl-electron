@@ -30,7 +30,6 @@
     "electron-log": "^5.4.3",
     "electron-store": "^11.0.2",
     "electron-updater": "^6.3.9",
-    "lodash": "^4.17.23",
     "tailwindcss": "^4.1.18",
     "unzipit": "^1.4.3",
     "vue-router": "^4.6.3",

@@ -2,7 +2,7 @@ import https from 'https'
 import http from 'http'
 import { createWriteStream } from 'fs'
 import log from 'electron-log/main'
-import { sendDownloadProgress } from './window-comm'
+import { sendDownloadProgress } from './window'
 
 /**
  * 下载配置常量
