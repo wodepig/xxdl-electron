@@ -81,10 +81,13 @@ const removeToast = (id: string): void => {
  * 监听主进程通知
  */
 onMounted(() => {
+  console.log('[ToastNotification] 组件挂载，注册通知监听器')
   if (window.api?.onAppNotification) {
     window.api.onAppNotification((data: ToastData) => {
+      console.log('[ToastNotification] 收到通知:', data)
       addToast(data)
     })
+    console.log('[ToastNotification] 通知监听器注册成功')
   } else {
     console.warn('window.api.onAppNotification 不可用')
   }

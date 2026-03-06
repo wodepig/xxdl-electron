@@ -1,13 +1,3 @@
-// ==================== 端口管理 ====================
-export {
-  extractPortFromUrl,
-  checkPortOnHost,
-  isPortInUse,
-  findAvailablePort,
-  buildUrlWithPort,
-  waitForServer
-} from './port'
-
 // ==================== 窗口管理 (包含窗口通信 + 通知) ====================
 export {
   createMainWindow,
@@ -37,17 +27,22 @@ export {
 // ==================== 浏览器管理 ====================
 export { openBrowserWithType } from './browser'
 
-// ==================== 文件下载 ====================
-export { downloadFile } from './download'
-
-// ==================== 服务器管理 ====================
+// ==================== 服务器管理 (包含端口管理) ====================
 export {
+  // 端口管理
+  extractPortFromUrl,
+  checkPortOnHost,
+  isPortInUse,
+  findAvailablePort,
+  buildUrlWithPort,
+  waitForServer,
+  // 服务器管理
   cleanupServerProcess,
   handleNodeServer,
   loadMainWindowUrl,
   sleep,
   getActualPort
-} from './server'
+} from './server-manager'
 
 // ==================== Node 应用更新 (Nuxt/Next 全栈应用) ====================
 export {
@@ -62,13 +57,19 @@ export {
   type UpgradeResponse
 } from './node-app-update'
 
-// ==================== 文件系统工具 (目录操作 + ZIP解压) ====================
+// ==================== 文件系统工具 (目录操作 + ZIP解压 + 文件下载) ====================
 export {
   getAppDir,
   deleteDir,
   ensureDir,
-  extractZip4unzipit
+  extractZip4unzipit,
+  downloadFile,
+  setDownloadProgressCallback,
+  type DownloadProgressCallback
 } from './fs-utils'
+
+// ==================== 路径工具 ====================
+export { getAppDir as getAppPath } from './path-utils'
 
 // ==================== 配置管理 (conf.json + .env 环境变量) ====================
 export {

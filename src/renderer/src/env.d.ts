@@ -101,13 +101,10 @@ interface Window {
       }
       error?: string
     }>
-    showMessage?: (
-      message: string,
-      type?: 'info' | 'error' | 'warning' | 'success'
-    ) => Promise<void>
     onInitProgress?: (callback: (payload: InitProgressPayload) => void) => void
     removeInitProgressListener?: () => void
     onAppNotification?: (callback: (data: NotificationData) => void) => void
     removeAppNotificationListener?: () => void
+    showNotification?: (type: 'info' | 'success' | 'warning' | 'error', title: string, message: string, duration?: number) => Promise<void>
   }
 }

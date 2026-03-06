@@ -1,7 +1,8 @@
 <template>
   <div class="space-y-6">
     <!-- 作者信息卡片 -->
-    <div class="bg-white border-4 border-gray-900 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] p-6 hover:-translate-y-0.5 hover:shadow-[7px_7px_0px_0px_rgba(0,0,0,1)] transition-all">
+    <div
+      class="bg-white border-4 border-gray-900 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] p-6 hover:-translate-y-0.5 hover:shadow-[7px_7px_0px_0px_rgba(0,0,0,1)] transition-all">
       <h2 class="text-xl font-black mb-5 tracking-tight text-gray-900 pb-3 border-b-2 border-gray-900">作者信息</h2>
 
       <div class="flex flex-col lg:flex-row gap-6">
@@ -14,44 +15,36 @@
 
           <div v-if="authorInfo.email" class="flex justify-between items-center py-2.5 border-b border-gray-200">
             <span class="font-bold text-sm text-gray-700">邮箱</span>
-            <button
-              @click="copyToClipboard(authorInfo.email!)"
+            <button @click="copyToClipboard(authorInfo.email!)"
               class="font-bold text-xs bg-[#B8D4E8] text-gray-900 px-3 py-1.5 border-2 border-gray-900 hover:translate-x-0.5 hover:translate-y-0.5 transition-all active:translate-x-1 active:translate-y-1"
-              title="点击复制"
-            >
+              title="点击复制">
               {{ authorInfo.email }}
             </button>
           </div>
 
           <div v-if="authorInfo.website" class="flex justify-between items-center py-2.5 border-b border-gray-200">
             <span class="font-bold text-sm text-gray-700">网站</span>
-            <button
-              @click="copyToClipboard(authorInfo.website!)"
+            <button @click="copyToClipboard(authorInfo.website!)"
               class="font-bold text-xs bg-[#B8D4E8] text-gray-900 px-3 py-1.5 border-2 border-gray-900 hover:translate-x-0.5 hover:translate-y-0.5 transition-all active:translate-x-1 active:translate-y-1"
-              title="点击复制"
-            >
+              title="点击复制">
               {{ authorInfo.website }}
             </button>
           </div>
 
           <div v-if="authorInfo.wx" class="flex justify-between items-center py-2.5 border-b border-gray-200">
             <span class="font-bold text-sm text-gray-700">微信</span>
-            <button
-              @click="copyToClipboard(authorInfo.wx!)"
+            <button @click="copyToClipboard(authorInfo.wx!)"
               class="font-bold text-xs bg-[#B8D4E8] text-gray-900 px-3 py-1.5 border-2 border-gray-900 hover:translate-x-0.5 hover:translate-y-0.5 transition-all active:translate-x-1 active:translate-y-1"
-              title="点击复制"
-            >
+              title="点击复制">
               {{ authorInfo.wx }}
             </button>
           </div>
 
           <div v-if="authorInfo.github" class="flex justify-between items-center py-2.5">
             <span class="font-bold text-sm text-gray-700">GitHub</span>
-            <button
-              @click="copyToClipboard(authorInfo.github!)"
+            <button @click="copyToClipboard(authorInfo.github!)"
               class="font-bold text-xs bg-[#B8D4E8] text-gray-900 px-3 py-1.5 border-2 border-gray-900 hover:translate-x-0.5 hover:translate-y-0.5 transition-all active:translate-x-1 active:translate-y-1"
-              title="点击复制"
-            >
+              title="点击复制">
               {{ authorInfo.github }}
             </button>
           </div>
@@ -70,17 +63,14 @@
     </div>
 
     <!-- 相关链接卡片 -->
-    <div v-if="links.length > 0" class="bg-white border-4 border-gray-900 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] p-6 hover:-translate-y-0.5 hover:shadow-[7px_7px_0px_0px_rgba(0,0,0,1)] transition-all">
+    <div v-if="links.length > 0"
+      class="bg-white border-4 border-gray-900 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] p-6 hover:-translate-y-0.5 hover:shadow-[7px_7px_0px_0px_rgba(0,0,0,1)] transition-all">
       <h2 class="text-xl font-black mb-5 tracking-tight text-gray-900 pb-3 border-b-2 border-gray-900">相关链接</h2>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <button
-          v-for="(link, index) in links"
-          :key="index"
-          @click="copyToClipboard(link.url)"
+        <button v-for="(link, index) in links" :key="index" @click="copyToClipboard(link.url)"
           class="flex items-center gap-2 p-3 bg-[#FFD4C8] text-gray-900 border-3 border-gray-900 font-bold shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-y-0 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-          title="点击复制链接"
-        >
+          title="点击复制链接">
           <span class="text-xl">{{ link.icon || '🔗' }}</span>
           <span class="text-sm font-black tracking-tight">{{ link.name }}</span>
         </button>
@@ -106,8 +96,8 @@ let links: LinkInfo[] = []
 const copyToClipboard = async (text: string): Promise<void> => {
   try {
     await navigator.clipboard.writeText(text)
-    if (window.api?.showMessage) {
-      await window.api.showMessage(`已复制: ${text}`, 'success')
+    if (window.api?.showNotification) {
+      await window.api.showNotification('success', '复制成功', `已复制: ${text}`)
     } else {
       alert(`已复制: ${text}`)
     }
@@ -122,14 +112,14 @@ const copyToClipboard = async (text: string): Promise<void> => {
       textArea.select()
       document.execCommand('copy')
       document.body.removeChild(textArea)
-      if (window.api?.showMessage) {
-        await window.api.showMessage(`已复制: ${text}`, 'success')
+      if (window.api?.showNotification) {
+        await window.api.showNotification('success', '复制成功', `已复制: ${text}`)
       } else {
         alert(`已复制: ${text}`)
       }
     } catch (fallbackErr) {
-      if (window.api?.showMessage) {
-        await window.api.showMessage('复制失败，请手动复制', 'error')
+      if (window.api?.showNotification) {
+        await window.api.showNotification('error', '复制失败', '复制失败，请手动复制')
       } else {
         alert('复制失败，请手动复制')
       }

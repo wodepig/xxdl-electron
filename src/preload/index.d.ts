@@ -44,12 +44,12 @@ type RendererAPI = {
   removeNavigateListener: () => void
   getSettings: () => Promise<Settings>
   saveSettings: (settings: Settings) => Promise<{ success: boolean; error?: string }>
-  showMessage: (message: string, type?: 'info' | 'error' | 'warning' | 'success') => Promise<void>
   checkPortInUse: (port: number) => Promise<{ success: boolean; inUse?: boolean; error?: string }>
   onInitProgress: (callback: (payload: InitProgressPayload) => void) => void
   removeInitProgressListener: () => void
   onAppNotification: (callback: (data: NotificationData) => void) => void
   removeAppNotificationListener: () => void
+  showNotification: (type: 'info' | 'success' | 'warning' | 'error', title: string, message: string, duration?: number) => Promise<void>
 }
 
 declare global {

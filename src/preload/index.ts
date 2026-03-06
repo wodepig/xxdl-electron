@@ -126,10 +126,6 @@ const api = {
     return ipcRenderer.invoke('reset-settings')
   },
 
-  // 显示消息框
-  showMessage: (message: string, type: 'info' | 'error' | 'warning' | 'success' = 'info') => {
-    return ipcRenderer.invoke('show-message', message, type)
-  },
 
   // 检查端口是否被占用
   checkPortInUse: (port: number): Promise<{ success: boolean; inUse?: boolean; error?: string }> => {
@@ -152,6 +148,13 @@ const api = {
 
   removeAppNotificationListener: () => {
     ipcRenderer.removeAllListeners('app-notification')
+  },
+
+  // 显示通知（触发主进程发送通知）
+  showNotification: async (type: 'info' | 'success' | 'warning' | 'error', title: string, message: string, duration?: number) => {
+    console.log('[Preload] 调用 showNotification:', { type, title, message, duration })
+    await ipcRenderer.invoke('show-notification', type, title, message, duration)
+    console.log('[Preload] showNotification 调用完成')
   }
 }
 

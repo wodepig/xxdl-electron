@@ -5,15 +5,22 @@
 
 // ==================== 重新导出所有功能 ====================
 
-// 端口管理
+// 服务器管理 (包含端口管理)
 export {
+  // 端口管理
   extractPortFromUrl,
   checkPortOnHost,
   isPortInUse,
   findAvailablePort,
   buildUrlWithPort,
-  waitForServer
-} from './utils/port'
+  waitForServer,
+  // 服务器管理
+  cleanupServerProcess,
+  handleNodeServer,
+  loadMainWindowUrl,
+  sleep,
+  getActualPort
+} from './utils/server-manager'
 
 // 窗口管理 (包含窗口通信 + 通知)
 export {
@@ -44,25 +51,15 @@ export {
 // 浏览器管理
 export { openBrowserWithType } from './utils/browser'
 
-// 文件系统工具 (包含ZIP解压)
+// 文件系统工具 (目录操作 + ZIP解压 + 文件下载)
 export {
   getAppDir,
   deleteDir,
   ensureDir,
-  extractZip4unzipit
+  extractZip4unzipit,
+  downloadFile,
+  setDownloadProgressCallback
 } from './utils/fs-utils'
-
-// 文件下载
-export { downloadFile } from './utils/download'
-
-// 服务器管理
-export {
-  cleanupServerProcess,
-  handleNodeServer,
-  loadMainWindowUrl,
-  sleep,
-  getActualPort
-} from './utils/server'
 
 // Node 应用更新 (Nuxt/Next 全栈应用)
 export {
@@ -107,11 +104,16 @@ import { join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 import log from 'electron-log/main'
 import { setConfValue, getConfValue } from './utils/config'
-import { extractZip4unzipit } from './utils/fs-utils'
-import { downloadFile } from './utils/download'
+import { extractZip4unzipit, downloadFile } from './utils/fs-utils'
 import { checkUpdate } from './utils/node-app-update'
-import { handleNodeServer, loadMainWindowUrl, sleep, getActualPort, cleanupServerProcess } from './utils/server'
-import { buildUrlWithPort } from './utils/port'
+import {
+  handleNodeServer,
+  loadMainWindowUrl,
+  sleep,
+  getActualPort,
+  cleanupServerProcess,
+  buildUrlWithPort
+} from './utils/server-manager'
 import { getAppDir, deleteDir } from './utils/fs-utils'
 
 const extract_dir_name = 'dist_server'

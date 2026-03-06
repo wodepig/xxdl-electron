@@ -13,7 +13,8 @@
 import { join } from 'path'
 import log from 'electron-log/main'
 import { getConfValue, setConfValue } from './config'
-import { downloadFile } from './download'
+import { downloadFile } from './fs-utils'
+import {showInfoNotification,showWarningNotification} from './window'
 
 // ==================== UpgradeLink API 客户端 ====================
 
@@ -209,6 +210,7 @@ export const shouldCheckUpdate = (): boolean => {
 
   // 从不更新
   if (updateFrequency === 'never') {
+    showWarningNotification('更新频率为"从不更新"','“从不更新”会跳过更新检查, 可能会错过新功能和安全修复')
     log.warn('注意: 更新频率已设置为"从不更新"，跳过更新检查')
     return false
   }
@@ -230,6 +232,7 @@ export const shouldCheckUpdate = (): boolean => {
       return true
     } else {
       const hoursSinceLastCheck = Math.floor((now - lastCheckTime) / (60 * 60 * 1000))
+      showWarningNotification('更新频率为"每天更新一次"',`距离上次检查仅 ${hoursSinceLastCheck} 小时，本次启动跳过更新检查`)
       log.info(
         `注意: 更新频率设置为"每天更新一次"，距离上次检查仅 ${hoursSinceLastCheck} 小时，跳过更新检查`
       )
@@ -275,6 +278,7 @@ export const checkUpdate = async (distVersion: number): Promise<boolean> => {
     // 检查是否有新版本
     const newVersionCode = res.data.versionCode
     if (newVersionCode > distVersion) {
+      showInfoNotification('发现新版本',`版本号:${distVersion} -> ${newVersionCode},更新内容: ${res.data.promptUpgradeContent}`)
       log.info(
         `发现新版本:${distVersion} -> ${newVersionCode},更新内容: ${res.data.promptUpgradeContent}`
       )
@@ -283,11 +287,14 @@ export const checkUpdate = async (distVersion: number): Promise<boolean> => {
       setConfValue('distVersion', newVersionCode)
       return true
     } else {
+      showInfoNotification('当前最新版本', `版本号: ${distVersion}`)
       log.info(`当前已是最新版本: ${distVersion}`)
     }
   } else if (res && res.code === 0) {
+    showInfoNotification('没有新版本','当前已是最新版本')
     log.info('没有新版本')
   } else {
+    showWarningNotification('检查更新失败','使用当前版本')
     log.info('检查更新失败，使用当前版本')
   }
   return false

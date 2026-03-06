@@ -7,9 +7,16 @@ import { autoUpdater } from "electron-updater"
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { startInitialize,deleteAppData, cleanupServerProcess, addLog2Vue, sendLatestLogToMainWindow, sleep, getAppDir,isPortInUse, sendInitProgress } from './utils'
 import { getConfValue, setConfValue, clearConf, getEnvConf } from './utils/config'
-import { createMainWindow, showMessageBox, ensureMenuCreated } from './utils'
+import { createMainWindow, ensureMenuCreated } from './utils'
 import { showUpdateNotification, showInfoNotification, showSuccessNotification, showWarningNotification, showErrorNotification, showNotification, type NotificationType, type NotificationData } from './utils/window'
 import { checkElectronUpdrate } from './utils/electron-update'
+import { setDownloadProgressCallback } from './utils/fs-utils'
+import { sendDownloadProgress } from './utils/window'
+
+// 设置下载进度回调（避免循环依赖）
+setDownloadProgressCallback((visible, progress, isDownloading) => {
+  sendDownloadProgress({ visible, progress, isDownloading })
+})
 
 const DEFAULT_SETTINGS = {
   updateFrequency: 'onStart',
@@ -72,7 +79,6 @@ const runInitialization = async () => {
   
     await listingLog()
     await sleep(200)
-    showInfoNotification('应用初始化中...','请稍后...')
     
     await startInitialize()
   } catch (error) {
@@ -254,13 +260,27 @@ try{
     }
   })
 
-  ipcMain.handle(
-    'show-message',
-    async (_event, message: string, type: 'info' | 'error' | 'warning' | 'success' = 'info') => {
-      await showMessageBox(message, type)
-      // console.log('show-message', message, type)
+ 
+
+  // 显示通知
+  ipcMain.handle('show-notification', (event, type: NotificationType, title: string, message: string, duration?: number) => {
+    log.info(`[IPC] 收到显示通知请求: ${type} - ${title}`)
+    // 获取发送请求的窗口
+    const sender = event.sender
+    if (sender && !sender.isDestroyed()) {
+      sender.send('app-notification', {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        type,
+        title,
+        message,
+        duration: duration || 10000,
+        timestamp: Date.now()
+      })
+      log.info('[Notification] 通知已发送到调用窗口')
+    } else {
+      log.warn('[Notification] 调用窗口不存在，无法发送通知')
     }
-  )
+  })
 
   // 检查端口是否被占用
   ipcMain.handle('check-port-in-use', async (_event, port: number) => {

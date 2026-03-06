@@ -1,11 +1,10 @@
 import { Conf } from 'electron-conf/main'
-import { getAppDir } from './fs-utils'
+import { getAppDir } from './path-utils'
 import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { app, dialog } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import log from 'electron-log/main'
-import { addLog2Vue } from './window'
 
 // ==================== 配置命名空间 ====================
 
@@ -80,16 +79,16 @@ const checkRequiredEnvVars = (): { valid: boolean; missing: string[] } => {
 export const loadEnvFile = (): void => {
   const envPath = getEnvPath()
   if (!existsSync(envPath)) {
-    addLog2Vue('错误:.env 文件不存在:' + envPath)
+    log.error('错误:.env 文件不存在:' + envPath)
     return
   }
 
   try {
     const content = readFileSync(envPath, 'utf-8')
     parseEnvFile(content)
-    addLog2Vue('环境变量加载成功')
+    log.info('环境变量加载成功')
   } catch (error: any) {
-    addLog2Vue('读取 .env 文件失败:' + error.message)
+    log.error('读取 .env 文件失败:' + error.message)
   }
 
   // 检查必需的环境变量

@@ -41,31 +41,23 @@ const WINDOW_DEFAULTS = {
 let isMenuCreated = false
 
 // 主窗口缓存
-let cachedMainWindow: BrowserWindow | undefined = undefined
+let cachedMainWindow: BrowserWindow | undefined
 let lastCacheTime = 0
 const CACHE_TTL = 1000 // 缓存有效期 1 秒
 
 // ==================== 工具函数 ====================
 
-/**
- * 判断是否为主窗口
- */
 const isMainWindow = (name: string): boolean => name === MAIN_WINDOW_NAME
 
 /**
- * 获取主窗口实例
- * 优先通过标题匹配，如果失败则返回第一个非子窗口
- * 使用缓存机制避免频繁遍历所有窗口
+ * 获取主窗口实例（带缓存）
  */
 export const getMainWindow = (): BrowserWindow | undefined => {
   const now = Date.now()
-
-  // 检查缓存是否有效
   if (cachedMainWindow && !cachedMainWindow.isDestroyed() && (now - lastCacheTime) < CACHE_TTL) {
     return cachedMainWindow
   }
 
-  // 首先尝试通过标题获取
   const windowByTitle = getWindowsByTitle(MAIN_WINDOW_NAME)
   if (windowByTitle && !windowByTitle.isDestroyed()) {
     cachedMainWindow = windowByTitle
@@ -73,60 +65,31 @@ export const getMainWindow = (): BrowserWindow | undefined => {
     return windowByTitle
   }
 
-  // 如果标题匹配失败，尝试找到第一个非子窗口（主窗口通常没有父窗口）
-  const allWindows = BrowserWindow.getAllWindows()
-  const mainWindow = allWindows.find(win => {
-    // 排除已销毁的窗口
-    if (win.isDestroyed()) return false
-    // 排除有父窗口的子窗口
-    if (win.getParentWindow()) return false
-    return true
-  })
+  const mainWindow = BrowserWindow.getAllWindows().find(win =>
+    !win.isDestroyed() && !win.getParentWindow()
+  )
 
-  if (mainWindow) {
-    log.debug(`通过父窗口检测找到主窗口，标题: ${mainWindow.getTitle()}`)
-  }
-
-  // 更新缓存
   cachedMainWindow = mainWindow
   lastCacheTime = now
-
   return mainWindow
 }
 
-/**
- * 清除主窗口缓存
- * 在窗口关闭或重新创建时调用
- */
 export const clearMainWindowCache = (): void => {
   cachedMainWindow = undefined
   lastCacheTime = 0
 }
 
-/**
- * 根据窗口名称获取路由
- */
-const getWindowRoute = (name: string): string => {
-  return WINDOW_ROUTES[name] ?? '/about'
-}
+const getWindowRoute = (name: string): string => WINDOW_ROUTES[name] ?? '/about'
 
-/**
- * 获取图标路径
- */
 const getIconPath = (): string => {
   const iconFromEnv = import.meta.env.VITE_APP_ICON
-  return iconFromEnv
-    ? `../../resources/${iconFromEnv}`
-    : '../../resources/image/icon.png'
+  return iconFromEnv ? `../../resources/${iconFromEnv}` : '../../resources/image/icon.png'
 }
 
 /**
- * 简单防抖函数
+ * 防抖函数
  */
-const debounce = <T extends (...args: any[]) => void>(
-  func: T,
-  wait: number
-): ((...args: Parameters<T>) => void) => {
+const debounce = <T extends (...args: any[]) => void>(func: T, wait: number) => {
   let timeout: NodeJS.Timeout | null = null
   return (...args: Parameters<T>) => {
     if (timeout) clearTimeout(timeout)
@@ -134,37 +97,27 @@ const debounce = <T extends (...args: any[]) => void>(
   }
 }
 
-/**
- * 保存窗口尺寸（防抖）
- */
-const debouncedSaveSize = debounce((window: BrowserWindow, name: string) => {
-  setConfValue(`${name}.size`, window.getSize(), 'window')
+// 防抖保存窗口尺寸和位置
+const debouncedSaveSize = debounce((win: BrowserWindow, name: string) => {
+  setConfValue(`${name}.size`, win.getSize(), 'window')
+}, 500)
+
+const debouncedSavePosition = debounce((win: BrowserWindow, name: string) => {
+  setConfValue(`${name}.position`, win.getPosition(), 'window')
 }, 500)
 
 /**
- * 保存窗口位置（防抖）
+ * 创建窗口配置
  */
-const debouncedSavePosition = debounce((window: BrowserWindow, name: string) => {
-  setConfValue(`${name}.position`, window.getPosition(), 'window')
-}, 500)
-
-/**
- * 创建窗口配置对象
- */
-const createWindowConfig = (
-  name: string,
-  parent?: BrowserWindow | null
-): Electron.BrowserWindowConstructorOptions => {
-  const shouldShowMenuBar = isMainWindow(name)
-  const defaultIcon = join(__dirname, getIconPath())
-
+const createWindowConfig = (name: string, parent?: BrowserWindow | null): Electron.BrowserWindowConstructorOptions => {
+  const isMain = isMainWindow(name)
   return {
     width: WINDOW_DEFAULTS.WIDTH,
     height: WINDOW_DEFAULTS.HEIGHT,
     show: false,
-    autoHideMenuBar: !shouldShowMenuBar,
+    autoHideMenuBar: !isMain,
     resizable: true,
-    icon: defaultIcon,
+    icon: join(__dirname, getIconPath()),
     minimizable: true,
     maximizable: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -173,7 +126,7 @@ const createWindowConfig = (
       sandbox: false,
       devTools: true,
       contextIsolation: true,
-      partition: shouldShowMenuBar ? 'persist:main' : undefined
+      partition: isMain ? 'persist:main' : undefined
     },
     parent: parent || undefined,
     modal: false
@@ -181,66 +134,41 @@ const createWindowConfig = (
 }
 
 /**
- * 注册窗口事件监听器
+ * 注册窗口事件
  */
-const setupWindowEventListeners = (
-  window: BrowserWindow,
-  name: string,
-  autoShow: boolean,
-  parent?: BrowserWindow | null
-): void => {
-  // ready-to-show 事件
-  window.once('ready-to-show', () => {
-    window.setTitle(name)
+const setupWindowEventListeners = (win: BrowserWindow, name: string, autoShow: boolean, parent?: BrowserWindow | null): void => {
+  win.once('ready-to-show', () => {
+    win.setTitle(name)
     resetWindowsSizeAndPosition(name)
 
     if (autoShow) {
-      window.show()
+      win.show()
       log.info(`子窗口 ${name} 已显示`)
-    } else {
-      log.info(`窗口 ${name} 准备完成，等待外部显示`)
     }
 
-    // 如果是主窗口，在这里创建菜单（第一次尝试）
     if (isMainWindow(name) && !isMenuCreated) {
-      log.info('主窗口 ready-to-show 触发，尝试创建菜单（第一次）')
-      setImmediate(() => {
-        ensureMenuCreated(window)
-      })
+      setImmediate(() => ensureMenuCreated(win))
     }
   })
 
-  // resize 和 move 事件
-  window.on('resize', () => {
-    debouncedSaveSize(window, name)
-  })
+  win.on('resize', () => debouncedSaveSize(win, name))
+  win.on('move', () => debouncedSavePosition(win, name))
 
-  window.on('move', () => {
-    debouncedSavePosition(window, name)
-  })
-
-  // 窗口关闭时清除缓存
-  window.on('closed', () => {
+  win.on('closed', () => {
     if (isMainWindow(name)) {
       clearMainWindowCache()
-      log.debug('主窗口关闭，清除缓存')
     }
   })
 
-  // 子窗口关闭时，确保主窗口恢复焦点
+  // 子窗口关闭时恢复父窗口焦点
   if (!isMainWindow(name) && parent) {
-    window.on('close', () => {
-      if (parent && !parent.isDestroyed()) {
-        // 延迟恢复主窗口焦点，避免闪烁
-        setTimeout(() => {
-          if (!parent.isDestroyed()) {
-            if (parent.isMinimized()) {
-              parent.restore()
-            }
-            parent.focus()
-          }
-        }, 100)
-      }
+    win.on('close', () => {
+      setTimeout(() => {
+        if (parent && !parent.isDestroyed()) {
+          if (parent.isMinimized()) parent.restore()
+          parent.focus()
+        }
+      }, 100)
     })
   }
 }
@@ -248,48 +176,26 @@ const setupWindowEventListeners = (
 /**
  * 创建右键菜单
  */
-const createContextMenu = (mainWindow: BrowserWindow) => {
-  return Menu.buildFromTemplate([
-    {
-      label: '刷新',
-      accelerator: 'CmdOrCtrl+R',
-      click: () => refreshWindow(mainWindow)
-    },
-    { type: 'separator' },
-    {
-      label: '复制',
-      role: 'copy'
-    },
-    {
-      label: '粘贴',
-      role: 'paste'
-    },
-    {
-      label: '全选',
-      role: 'selectAll'
-    },
-    { type: 'separator' },
-    {
-      label: '开发者工具',
-      accelerator: 'CmdOrCtrl+Shift+I',
-      click: () => {
-        toggleDevToolsWithAuth().catch(console.error)
-      }
-    }
-  ])
-}
+const createContextMenu = (mainWindow: BrowserWindow) => Menu.buildFromTemplate([
+  { label: '刷新', accelerator: 'CmdOrCtrl+R', click: () => refreshWindow(mainWindow) },
+  { type: 'separator' },
+  { label: '复制', role: 'copy' },
+  { label: '粘贴', role: 'paste' },
+  { label: '全选', role: 'selectAll' },
+  { type: 'separator' },
+  {
+    label: '开发者工具',
+    accelerator: 'CmdOrCtrl+Shift+I',
+    click: () => toggleDevToolsWithAuth().catch(console.error)
+  }
+])
 
 /**
  * 创建主窗口
  */
-export const createMainWindow = async () => {
-  // 主窗口设置 autoShow=false，由外部控制显示时机
+export const createMainWindow = async (): Promise<BrowserWindow | null> => {
   const mainWindow = await createWindows(MAIN_WINDOW_NAME, null, false)
-
-  if (!mainWindow) {
-    log.error('创建主窗口失败')
-    return null
-  }
+  if (!mainWindow) return null
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
@@ -297,34 +203,21 @@ export const createMainWindow = async () => {
   })
 
   const contextMenu = createContextMenu(mainWindow)
-
   mainWindow.webContents.on('context-menu', (event) => {
     event.preventDefault()
-    if (!mainWindow.isDestroyed()) {
-      contextMenu.popup({ window: mainWindow })
-    }
+    if (!mainWindow.isDestroyed()) contextMenu.popup({ window: mainWindow })
   })
 
   return mainWindow
 }
 
 /**
- * 确保应用菜单已创建（兼容 mini-electron）
- * 在窗口完全就绪后调用，只执行一次
+ * 确保应用菜单已创建
  */
-export const ensureMenuCreated = (mainWindow: BrowserWindow | null) => {
-  if (isMenuCreated) {
-    log.info('应用菜单已存在，跳过重复创建')
-    return
-  }
-
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    log.warn('窗口不可用，无法创建菜单')
-    return
-  }
+export const ensureMenuCreated = (mainWindow: BrowserWindow | null): void => {
+  if (isMenuCreated || !mainWindow || mainWindow.isDestroyed()) return
 
   try {
-    log.info('开始创建应用菜单...')
     createMenu(mainWindow)
     isMenuCreated = true
     log.info('应用菜单创建成功')
@@ -334,154 +227,83 @@ export const ensureMenuCreated = (mainWindow: BrowserWindow | null) => {
 }
 
 /**
- * 降级方案：通过 JavaScript 设置路由
- */
-const setRouteByJavaScript = (window: BrowserWindow, pageUrl: string): void => {
-  setTimeout(() => {
-    if (!window.isDestroyed()) {
-      window.webContents.executeJavaScript(`
-        console.log('设置路由:', '${pageUrl}');
-        if (window.location.hash !== '#${pageUrl}') {
-          window.location.hash = '#${pageUrl}';
-        }
-      `).catch(e => log.error('设置路由失败:', e))
-    }
-  }, 500)
-}
-
-/**
  * 加载窗口路由
  */
-const loadWindowRoute = (window: BrowserWindow, pageUrl: string): void => {
+const loadWindowRoute = (win: BrowserWindow, pageUrl: string): void => {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    window.loadURL(`${process.env['ELECTRON_RENDERER_URL']}#${pageUrl}`)
-  } else {
-    // 生产环境：先加载文件，然后在页面加载完成后导航
-    const htmlPath = join(__dirname, '../renderer/index.html')
-    log.info(`加载HTML文件: ${htmlPath}, 目标路由: ${pageUrl}`)
-
-    window.loadFile(htmlPath, { hash: pageUrl }).catch(err => {
-      log.error(`加载HTML文件失败: ${err.message}`)
-      // 降级方案：先加载文件，再通过JS设置路由
-      window.loadFile(htmlPath).then(() => {
-        setRouteByJavaScript(window, pageUrl)
-      })
-    })
+    win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}#${pageUrl}`)
+    return
   }
+
+  const htmlPath = join(__dirname, '../renderer/index.html')
+  win.loadFile(htmlPath, { hash: pageUrl }).catch(() => {
+    // 降级方案：通过JS设置路由
+    win.loadFile(htmlPath).then(() => {
+      setTimeout(() => {
+        win.webContents.executeJavaScript(`
+          if (window.location.hash !== '#${pageUrl}') {
+            window.location.hash = '#${pageUrl}';
+          }
+        `).catch(e => log.error('设置路由失败:', e))
+      }, 500)
+    })
+  })
 }
 
 /**
- * 创建一个普通的窗口
- * @param name 窗口标题
- * @param parent 父窗口
- * @param autoShow 是否自动显示（主窗口设为false，由外部控制显示时机）
+ * 创建窗口
  */
 export const createWindows = async (
   name: string,
   parent?: BrowserWindow | null,
-  autoShow: boolean = true
+  autoShow = true
 ): Promise<BrowserWindow | undefined> => {
-  // 检查是否已存在同名窗口
   const existsWindow = getWindowsByTitle(name)
   if (existsWindow) {
     existsWindow.focus()
     return existsWindow
   }
 
-  // 获取配置并创建窗口
-  const config = createWindowConfig(name, parent)
-  const targetWindow = new BrowserWindow(config)
+  const win = new BrowserWindow(createWindowConfig(name, parent))
+  setupWindowEventListeners(win, name, autoShow, parent)
+  loadWindowRoute(win, getWindowRoute(name))
 
-  // 设置事件监听器
-  setupWindowEventListeners(targetWindow, name, autoShow, parent)
-
-  // 加载路由
-  const pageUrl = getWindowRoute(name)
-  loadWindowRoute(targetWindow, pageUrl)
-
-  // 开发模式下打开开发者工具
-  if (is.dev) {
-    targetWindow.webContents.openDevTools()
-  }
-
-  return targetWindow
+  if (is.dev) win.webContents.openDevTools()
+  return win
 }
 
 /**
- * 根据窗口标题获取实例
- * @param titleName 标题名
+ * 根据标题获取窗口
  */
-export const getWindowsByTitle = (titleName: string): BrowserWindow | undefined => {
-  const windows = BrowserWindow.getAllWindows()
-  return windows.find(win => win.getTitle() === titleName)
-}
+export const getWindowsByTitle = (titleName: string): BrowserWindow | undefined =>
+  BrowserWindow.getAllWindows().find(win => win.getTitle() === titleName)
 
 /**
  * 刷新窗口
  */
-const refreshWindow = (window: BrowserWindow | undefined): void => {
-  if (!window || window.isDestroyed()) {
-    log.warn('窗口不可用，无法刷新')
-    return
-  }
-  window.webContents.reload()
+const refreshWindow = (win: BrowserWindow | undefined): void => {
+  if (win && !win.isDestroyed()) win.webContents.reload()
 }
 
 /**
- * 创建菜单点击处理器工厂函数
- * 确保每次点击时都能获取到最新的主窗口实例
+ * 创建菜单点击处理器
  */
-const createMenuClickHandler = (
-  callback: (mainWindow: BrowserWindow) => void | Promise<void>
-) => {
-  return () => {
+const createMenuClickHandler = (callback: (win: BrowserWindow) => unknown) =>
+  () => {
     const mainWindow = getMainWindow()
     if (mainWindow && !mainWindow.isDestroyed()) {
-      Promise.resolve(callback(mainWindow)).catch(err => {
-        log.error('菜单操作失败:', err)
-      })
+      Promise.resolve(callback(mainWindow)).catch(err => log.error('菜单操作失败:', err))
     } else {
-      log.warn('主窗口不可用，无法执行菜单操作')
+      log.warn('主窗口不可用')
     }
   }
-}
 
 /**
- * 创建文件菜单子菜单
+ * 创建菜单
  */
-const createFileSubmenu = (): Electron.MenuItemConstructorOptions[] => [
-  {
-    label: '新建',
-    accelerator: 'CmdOrCtrl+N',
-    click: () => {
-      log.info('新建文件')
-    }
-  },
-  {
-    label: '打开',
-    accelerator: 'CmdOrCtrl+O',
-    click: () => {
-      log.info('打开文件')
-    }
-  },
-  { type: 'separator' },
-  {
-    label: '退出',
-    accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
-    click: () => {
-      app.quit()
-    }
-  }
-]
-
-// 创建菜单
 export const createMenu = (mainWindow?: BrowserWindow | null): void => {
-  // 如果没有传入窗口，则通过标题查找
-  if (!mainWindow) {
-    mainWindow = getMainWindow()
-  }
-
-  if (!mainWindow) {
+  const win = mainWindow || getMainWindow()
+  if (!win) {
     log.warn('创建菜单失败: 主窗口不存在')
     return
   }
@@ -489,122 +311,67 @@ export const createMenu = (mainWindow?: BrowserWindow | null): void => {
   const template: Electron.MenuItemConstructorOptions[] = [
     {
       label: '文件',
-      submenu: createFileSubmenu()
+      submenu: [
+        { label: '新建', accelerator: 'CmdOrCtrl+N', click: () => log.info('新建文件') },
+        { label: '打开', accelerator: 'CmdOrCtrl+O', click: () => log.info('打开文件') },
+        { type: 'separator' },
+        { label: '退出', accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q', click: () => app.quit() }
+      ]
     },
-    {
-      label: '浏览器中打开',
-      click: createMenuClickHandler(() => {
-        openInBrowser()
-      })
-    },
-    {
-      label: '刷新',
-      accelerator: 'CmdOrCtrl+R',
-      click: createMenuClickHandler((win) => {
-        refreshWindow(win)
-      })
-    },
-    {
-      label: '设置',
-      click: createMenuClickHandler(async (win) => {
-        await createWindows(WINDOW_NAMES.SETTINGS, win)
-      })
-    },
-    {
-      label: '关于',
-      click: createMenuClickHandler(async (win) => {
-        await createWindows(WINDOW_NAMES.ABOUT, win)
-      })
-    },
-    {
-      label: '日志',
-      click: createMenuClickHandler(async (win) => {
-        await createWindows(WINDOW_NAMES.LOG, win)
-      })
-    }
+    { label: '浏览器中打开', click: createMenuClickHandler(() => openInBrowser()) },
+    { label: '刷新', accelerator: 'CmdOrCtrl+R', click: createMenuClickHandler(refreshWindow) },
+    { label: '设置', click: createMenuClickHandler(win => { createWindows(WINDOW_NAMES.SETTINGS, win) }) },
+    { label: '关于', click: createMenuClickHandler(win => { createWindows(WINDOW_NAMES.ABOUT, win) }) },
+    { label: '日志', click: createMenuClickHandler(win => { createWindows(WINDOW_NAMES.LOG, win) }) }
   ]
 
-  const menu = Menu.buildFromTemplate(template)
-  Menu.setApplicationMenu(menu)
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
 /**
  * 在浏览器中打开
  */
-function openInBrowser(): void {
+const openInBrowser = (): void => {
   const nodeStart = getConfValue('nodeStart', 'false') as string
-  if (nodeStart === 'false') {
+  if (nodeStart !== 'true') {
     showMessageBox('程序未启动', 'error')
     return
   }
 
   const finalUrl = getConfValue('finalUrl', '') as string
-  if (finalUrl === '') {
+  if (!finalUrl) {
     showMessageBox('地址配置错误', 'error')
     return
   }
 
-  const browserType = getConfValue('browserType', 'default', 'settings') as string
-  openBrowserWithType(finalUrl, browserType)
+  openBrowserWithType(finalUrl, getConfValue('browserType', 'default', 'settings') as string)
 }
 
 /**
- * 获取最佳的消息框显示窗口
- * 优先级：设置窗口 > 关于窗口 > 主窗口
+ * 获取最佳对话框窗口
  */
-const getBestWindowForDialog = (): BrowserWindow | undefined => {
-  const windows = [
-    getWindowsByTitle(WINDOW_NAMES.SETTINGS),
-    getWindowsByTitle(WINDOW_NAMES.ABOUT),
-    getMainWindow()
-  ]
-
-  return windows.find(win => win && !win.isDestroyed())
-}
+const getBestWindowForDialog = (): BrowserWindow | undefined =>
+  [getWindowsByTitle(WINDOW_NAMES.SETTINGS), getWindowsByTitle(WINDOW_NAMES.ABOUT), getMainWindow()]
+    .find(win => win && !win.isDestroyed())
 
 /**
- * 将应用自定义类型映射到 Electron 原生类型
- */
-const mapDialogType = (
-  type: 'info' | 'error' | 'warning' | 'success'
-): 'info' | 'error' | 'warning' | 'none' => {
-  const typeMap: Record<string, 'info' | 'error' | 'warning' | 'none'> = {
-    error: 'error',
-    warning: 'warning'
-  }
-  return typeMap[type] ?? 'info'
-}
-
-/**
- * 获取对话框标题
- */
-const getDialogTitle = (
-  type: 'info' | 'error' | 'warning' | 'success'
-): string => {
-  const titleMap: Record<string, string> = {
-    success: '成功',
-    error: '错误',
-    warning: '警告'
-  }
-  return titleMap[type] ?? '提示'
-}
-
-/**
- * 消息框工具函数
+ * 消息框工具
  */
 export async function showMessageBox(
   message: string,
   type: 'info' | 'error' | 'warning' | 'success' = 'info'
 ): Promise<void> {
+  const typeMap: Record<string, 'info' | 'error' | 'warning' | 'none'> = { error: 'error', warning: 'warning' }
+  const titleMap: Record<string, string> = { success: '成功', error: '错误', warning: '警告' }
+
   const options: Electron.MessageBoxOptions = {
-    type: mapDialogType(type),
-    title: getDialogTitle(type),
-    message: message,
+    type: typeMap[type] ?? 'info',
+    title: titleMap[type] ?? '提示',
+    message,
     buttons: ['确定']
   }
 
   const targetWindow = getBestWindowForDialog()
-
   if (targetWindow) {
     await dialog.showMessageBox(targetWindow, options)
   } else {
@@ -612,122 +379,35 @@ export async function showMessageBox(
   }
 }
 
-/**
- * 切换开发者工具（需要管理员权限）
- */
+// ==================== 开发者工具 ====================
+
 const toggleDevToolsWithAuth = async (): Promise<void> => {
   const mainWindow = getMainWindow()
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    return
-  }
+  if (!mainWindow || mainWindow.isDestroyed()) return
 
   if (!mainWindow.webContents.isDevToolsOpened()) {
     const allowed = await verifyAdminAccess()
-    if (!allowed) {
-      return
-    }
-    mainWindow.webContents.openDevTools()
+    if (allowed) mainWindow.webContents.openDevTools()
   } else {
     mainWindow.webContents.closeDevTools()
   }
 }
 
-/**
- * 验证管理员权限
- */
 const verifyAdminAccess = async (): Promise<boolean> => {
   const password = await promptAdminPassword()
-  if (password === null) {
-    log.info('管理员操作已取消')
-    return false
-  }
+  if (password === null) return false
 
   const ADMIN_PASSWORD = getEnvConf('VITE_ADMIN_PASSWORD')
   if (password !== ADMIN_PASSWORD) {
-    await dialog.showMessageBox({
-      type: 'error',
-      title: '验证失败',
-      message: '管理员密码错误，请重试。'
-    })
+    await dialog.showMessageBox({ type: 'error', title: '验证失败', message: '管理员密码错误' })
     log.warn('管理员密码校验失败')
     return false
   }
-
-  log.info('管理员身份验证成功')
   return true
 }
 
 /**
- * 管理员密码验证窗口 HTML 模板
- */
-const ADMIN_PASSWORD_HTML = `
-  <html lang="zh-cn">
-    <head>
-      <meta charset="utf-8" />
-      <title>管理员验证</title>
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 20px; background: #f7f7f7; }
-        h2 { margin-top: 0; font-size: 18px; color: #333; }
-        form { display: flex; flex-direction: column; gap: 12px; }
-        input { padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; }
-        .actions { display: flex; justify-content: flex-end; gap: 8px; }
-        button { padding: 6px 16px; border-radius: 4px; border: none; cursor: pointer; font-size: 14px; }
-        button.primary { background: #4f7cff; color: white; }
-        button.secondary { background: #e0e0e0; }
-      </style>
-    </head>
-    <body>
-      <h2>请输入管理员密码</h2>
-      <form id="password-form">
-        <input id="password-input" type="password" placeholder="管理员密码" autofocus required />
-        <div class="actions">
-          <button type="button" class="secondary" id="cancel-btn">取消</button>
-          <button type="submit" class="primary">确认</button>
-        </div>
-      </form>
-      <script>
-        const { ipcRenderer } = require('electron');
-        const form = document.getElementById('password-form');
-        const cancelBtn = document.getElementById('cancel-btn');
-        const input = document.getElementById('password-input');
-
-        cancelBtn.addEventListener('click', () => {
-          ipcRenderer.send('__CANCEL_CHANNEL__');
-        });
-
-        form.addEventListener('submit', (event) => {
-          event.preventDefault();
-          ipcRenderer.send('__SUBMIT_CHANNEL__', input.value);
-        });
-      </script>
-    </body>
-  </html>
-`
-
-/**
- * 创建管理员密码验证窗口配置
- */
-const createPromptWindowConfig = (
-  parent?: BrowserWindow | null
-): Electron.BrowserWindowConstructorOptions => ({
-  width: 360,
-  height: 220,
-  parent: parent || undefined,
-  modal: true,
-  show: false,
-  resizable: false,
-  minimizable: false,
-  maximizable: false,
-  autoHideMenuBar: true,
-  title: '管理员验证',
-  webPreferences: {
-    nodeIntegration: true,
-    contextIsolation: false
-  }
-})
-
-/**
- * 提示用户输入管理员密码
+ * 管理员密码验证窗口
  */
 const promptAdminPassword = (): Promise<string | null> => {
   const mainWindow = getMainWindow()
@@ -737,102 +417,90 @@ const promptAdminPassword = (): Promise<string | null> => {
     const cancelChannel = `admin-password:cancel:${channelId}`
     let resolved = false
 
-    const promptWindow = new BrowserWindow(createPromptWindowConfig(mainWindow))
+    const promptWindow = new BrowserWindow({
+      width: 360,
+      height: 220,
+      parent: mainWindow || undefined,
+      modal: true,
+      show: false,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      autoHideMenuBar: true,
+      title: '管理员验证',
+      webPreferences: { nodeIntegration: true, contextIsolation: false }
+    })
 
-    // 清理函数
     const cleanup = () => {
       try {
         ipcMain.removeListener(submitChannel, submitHandler)
         ipcMain.removeListener(cancelChannel, cancelHandler)
-      } catch (err) {
-        log.warn('清理IPC监听器时出错:', err)
-      }
-      if (!promptWindow.isDestroyed()) {
-        promptWindow.close()
-      }
+      } catch { }
+      if (!promptWindow.isDestroyed()) promptWindow.close()
     }
 
-    // 提交处理器
-    const submitHandler = (_event: any, password: string) => {
-      resolved = true
-      resolve(password)
-      cleanup()
-    }
-
-    // 取消处理器
-    const cancelHandler = () => {
-      resolved = true
-      resolve(null)
-      cleanup()
-    }
+    const submitHandler = (_event: any, password: string) => { resolved = true; resolve(password); cleanup() }
+    const cancelHandler = () => { resolved = true; resolve(null); cleanup() }
 
     ipcMain.once(submitChannel, submitHandler)
     ipcMain.once(cancelChannel, cancelHandler)
 
-    promptWindow.on('closed', () => {
-      if (!resolved) {
-        resolve(null)
-      }
-      cleanup()
-    })
+    promptWindow.on('closed', () => { if (!resolved) resolve(null) })
 
-    // 使用替换后的 channel 加载 HTML
-    const html = ADMIN_PASSWORD_HTML
-      .replace('__SUBMIT_CHANNEL__', submitChannel)
-      .replace('__CANCEL_CHANNEL__', cancelChannel)
+    const html = `<html lang="zh-cn"><head><meta charset="utf-8"/><title>管理员验证</title>
+      <style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:20px;background:#f7f7f7}
+      h2{margin-top:0;font-size:18px;color:#333}
+      form{display:flex;flex-direction:column;gap:12px}
+      input{padding:8px;border-radius:4px;border:1px solid #ccc;font-size:14px}
+      .actions{display:flex;justify-content:flex-end;gap:8px}
+      button{padding:6px 16px;border-radius:4px;border:none;cursor:pointer;font-size:14px}
+      button.primary{background:#4f7cff;color:white}
+      button.secondary{background:#e0e0e0}</style></head>
+      <body><h2>请输入管理员密码</h2><form id="password-form">
+      <input id="password-input" type="password" placeholder="管理员密码" autofocus required/>
+      <div class="actions"><button type="button" class="secondary" id="cancel-btn">取消</button>
+      <button type="submit" class="primary">确认</button></div></form>
+      <script>const{ipcRenderer}=require('electron');
+      document.getElementById('cancel-btn').addEventListener('click',()=>ipcRenderer.send('${cancelChannel}'));
+      document.getElementById('password-form').addEventListener('submit',(e)=>{e.preventDefault();ipcRenderer.send('${submitChannel}',document.getElementById('password-input').value)});
+      </script></body></html>`
 
     promptWindow.loadURL(`data:text/html;charset=UTF-8,${encodeURIComponent(html)}`)
-    promptWindow.once('ready-to-show', () => {
-      promptWindow.show()
-    })
+    promptWindow.once('ready-to-show', () => promptWindow.show())
   })
 }
 
 /**
  * 恢复窗口位置和大小
  */
-function resetWindowsSizeAndPosition(title: string): void {
-  const window = getWindowsByTitle(title)
-  if (!window) {
-    return
-  }
+const resetWindowsSizeAndPosition = (title: string): void => {
+  const win = getWindowsByTitle(title)
+  if (!win) return
 
   const size = getConfValue(`${title}.size`, WINDOW_DEFAULTS.SIZE, 'window') as [number, number]
   const position = getConfValue(`${title}.position`, WINDOW_DEFAULTS.POSITION, 'window') as [number, number]
 
-  window.setSize(size[0], size[1])
-  window.setPosition(position[0], position[1])
+  win.setSize(size[0], size[1])
+  win.setPosition(position[0], position[1])
 }
 
 // ==================== 窗口通信 ====================
 
-/**
- * 下载进度数据类型
- */
 export type DownloadProgressPayload = {
   visible: boolean
   progress: number
   isDownloading: boolean
 }
 
-/**
- * 向日志窗口添加日志
- * @param msg 日志消息
- */
 export const addLog2Vue = (msg: string): void => {
-  const logWindows = getWindowsByTitle('日志')
-
-  if (logWindows && !logWindows.isDestroyed()) {
-    logWindows.webContents.send('log-message', msg)
+  const logWindow = getWindowsByTitle('日志')
+  if (logWindow && !logWindow.isDestroyed()) {
+    logWindow.webContents.send('log-message', msg)
   } else {
     console.log(msg)
   }
 }
 
-/**
- * 向主窗口发送最新日志消息
- * @param msg 日志消息
- */
 export const sendLatestLogToMainWindow = (msg: string): void => {
   const mainWindow = getMainWindow()
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -840,11 +508,6 @@ export const sendLatestLogToMainWindow = (msg: string): void => {
   }
 }
 
-/**
- * 发送初始化进度
- * @param progress 进度百分比 (0-100)
- * @param message 进度消息
- */
 export const sendInitProgress = (progress: number, message: string): void => {
   const mainWindow = getMainWindow()
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -852,199 +515,71 @@ export const sendInitProgress = (progress: number, message: string): void => {
   }
 }
 
-/**
- * 发送下载进度
- * @param payload 下载进度数据
- */
 export const sendDownloadProgress = (payload: DownloadProgressPayload): void => {
   sendInitProgress(payload.progress, '正在下载程序:')
 }
 
 // ==================== 通知系统 ====================
 
-/**
- * 通知类型
- */
 export type NotificationType = 'info' | 'success' | 'warning' | 'error'
 
-/**
- * 通知数据
- */
 export interface NotificationData {
-  /** 通知唯一ID */
   id: string
-  /** 通知类型 */
   type: NotificationType
-  /** 通知标题 */
   title: string
-  /** 通知内容 */
   message: string
-  /** 显示时长（毫秒），默认10000ms */
   duration: number
-  /** 创建时间 */
   timestamp: number
 }
 
-/**
- * 默认通知配置
- */
-const DEFAULT_NOTIFICATION_CONFIG = {
-  duration: 10000, // 10秒自动消失
-  type: 'info' as NotificationType
-}
+const DEFAULT_NOTIFICATION_DURATION = 10000
 
-/**
- * 生成唯一ID
- * @returns 唯一ID字符串
- */
-const generateNotificationId = (): string => {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-}
+const generateNotificationId = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
-/**
- * 向主窗口发送通知
- * @param data 通知数据
- */
 const sendNotificationToMainWindow = (data: NotificationData): void => {
   const mainWindow = getMainWindow()
+  log.info(`[Notification] 尝试发送通知: ${data.title} - ${data.message}, 主窗口: ${mainWindow ? '存在' : '不存在'}`)
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('app-notification', data)
-    log.debug(`[Notification] 发送通知: ${data.title} - ${data.message}`)
+    log.info('[Notification] 通知已发送到主窗口')
   } else {
-    log.warn('[Notification] 主窗口不存在或已销毁，无法发送通知')
+    log.warn('[Notification] 主窗口不存在，无法发送通知')
   }
 }
 
 /**
- * 显示软件更新通知
- * @param version 新版本号
- * @param updateContent 更新内容描述
- * @param duration 显示时长（毫秒），默认10000ms
+ * 显示通知（通用函数）
  */
-export const showUpdateNotification = (
-  version: string,
-  updateContent: string,
-  duration?: number
-): void => {
-  const notification: NotificationData = {
-    id: generateNotificationId(),
-    type: 'success',
-    title: `软件更新至 v${version}`,
-    message: updateContent,
-    duration: duration || DEFAULT_NOTIFICATION_CONFIG.duration,
-    timestamp: Date.now()
-  }
-  sendNotificationToMainWindow(notification)
-}
-
-/**
- * 显示信息通知
- * @param title 通知标题
- * @param message 通知内容
- * @param duration 显示时长（毫秒），默认10000ms
- */
-export const showInfoNotification = (
-  title: string,
-  message: string,
-  duration?: number
-): void => {
-  const notification: NotificationData = {
-    id: generateNotificationId(),
-    type: 'info',
-    title,
-    message,
-    duration: duration || DEFAULT_NOTIFICATION_CONFIG.duration,
-    timestamp: Date.now()
-  }
-  sendNotificationToMainWindow(notification)
-}
-
-/**
- * 显示成功通知
- * @param title 通知标题
- * @param message 通知内容
- * @param duration 显示时长（毫秒），默认10000ms
- */
-export const showSuccessNotification = (
-  title: string,
-  message: string,
-  duration?: number
-): void => {
-  const notification: NotificationData = {
-    id: generateNotificationId(),
-    type: 'success',
-    title,
-    message,
-    duration: duration || DEFAULT_NOTIFICATION_CONFIG.duration,
-    timestamp: Date.now()
-  }
-  sendNotificationToMainWindow(notification)
-}
-
-/**
- * 显示警告通知
- * @param title 通知标题
- * @param message 通知内容
- * @param duration 显示时长（毫秒），默认10000ms
- */
-export const showWarningNotification = (
-  title: string,
-  message: string,
-  duration?: number
-): void => {
-  const notification: NotificationData = {
-    id: generateNotificationId(),
-    type: 'warning',
-    title,
-    message,
-    duration: duration || DEFAULT_NOTIFICATION_CONFIG.duration,
-    timestamp: Date.now()
-  }
-  sendNotificationToMainWindow(notification)
-}
-
-/**
- * 显示错误通知
- * @param title 通知标题
- * @param message 通知内容
- * @param duration 显示时长（毫秒），默认10000ms
- */
-export const showErrorNotification = (
-  title: string,
-  message: string,
-  duration?: number
-): void => {
-  const notification: NotificationData = {
-    id: generateNotificationId(),
-    type: 'error',
-    title,
-    message,
-    duration: duration || DEFAULT_NOTIFICATION_CONFIG.duration,
-    timestamp: Date.now()
-  }
-  sendNotificationToMainWindow(notification)
-}
-
-/**
- * 显示自定义通知
- * @param type 通知类型
- * @param title 通知标题
- * @param message 通知内容
- * @param duration 显示时长（毫秒），默认10000ms
- */
-export const showNotification = (
+const showNotification = (
   type: NotificationType,
   title: string,
   message: string,
-  duration?: number
+  duration = DEFAULT_NOTIFICATION_DURATION
 ): void => {
-  const notification: NotificationData = {
+  sendNotificationToMainWindow({
     id: generateNotificationId(),
     type,
     title,
     message,
-    duration: duration || DEFAULT_NOTIFICATION_CONFIG.duration,
+    duration,
     timestamp: Date.now()
-  }
-  sendNotificationToMainWindow(notification)
+  })
 }
+
+// 导出各类通知函数
+export const showUpdateNotification = (version: string, message: string, duration?: number): void =>
+  showNotification('success', `软件更新至 v${version}`, message, duration)
+
+export const showInfoNotification = (title: string, message: string, duration?: number): void =>
+  showNotification('info', title, message, duration)
+
+export const showSuccessNotification = (title: string, message: string, duration?: number): void =>
+  showNotification('success', title, message, duration)
+
+export const showWarningNotification = (title: string, message: string, duration?: number): void =>
+  showNotification('warning', title, message, duration)
+
+export const showErrorNotification = (title: string, message: string, duration?: number): void =>
+  showNotification('error', title, message, duration)
+
+export { showNotification }
