@@ -10,6 +10,8 @@ export class LogFileWatcher extends EventEmitter {
   private watcher: fs.FSWatcher | null = null;
   private filePath: string;
   private fileSize: number = 0;
+  private debounceTimer: NodeJS.Timeout | null = null;
+  private readonly DEBOUNCE_DELAY = 100; // 防抖延迟 100ms
 
   constructor(filePath: string) {
     super();
@@ -22,9 +24,11 @@ export class LogFileWatcher extends EventEmitter {
    */
   async initWatch(): Promise<Array<string>> {
     try {
+      console.log('[LogFileWatcher] 开始初始化监听')
       let first50Logs: string[] = []
       try {
         first50Logs = await this.readLastNLogs(50);
+        console.log(`[LogFileWatcher] 读取到 ${first50Logs.length} 条历史日志`)
       } catch (err) {
         console.log('读取日志错误...')
       }
@@ -35,9 +39,8 @@ export class LogFileWatcher extends EventEmitter {
 
       this.watcher = fs.watch(this.filePath, { encoding: 'utf-8' }, (eventType) => {
         if (eventType === 'change') {
-          this.readNewLogs().catch(err => {
-            this.emit('error', `读取新增日志失败：${err.message}`);
-          });
+          // 使用防抖机制避免重复读取
+          this.debouncedReadNewLogs();
         }
       });
 
@@ -50,6 +53,22 @@ export class LogFileWatcher extends EventEmitter {
       this.emit('error', `初始化监听失败：${(err as Error).message}`);
       throw err;
     }
+  }
+
+  /**
+   * 防抖读取新日志
+   */
+  private debouncedReadNewLogs(): void {
+    // 清除之前的定时器
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
+    // 设置新的定时器
+    this.debounceTimer = setTimeout(() => {
+      this.readNewLogs().catch(err => {
+        this.emit('error', `读取新增日志失败：${err.message}`);
+      });
+    }, this.DEBOUNCE_DELAY);
   }
 
   /**
@@ -119,6 +138,12 @@ export class LogFileWatcher extends EventEmitter {
         if (err) return reject(err);
         const newSize = stats.size;
 
+        // 如果文件大小没有变化，跳过读取
+        if (newSize === this.fileSize) {
+          resolve();
+          return;
+        }
+
         if (newSize < this.fileSize) {
           this.fileSize = 0;
           this.readLastNLogs(50).then((logs) => {
@@ -163,6 +188,10 @@ export class LogFileWatcher extends EventEmitter {
    * 清理监听资源
    */
   cleanup(): void {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
     if (this.watcher) {
       this.watcher.close();
       this.watcher = null;

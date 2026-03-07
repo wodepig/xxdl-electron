@@ -53,6 +53,8 @@ export {
   // UpgradeLink API
   getElectronUpgrade,
   getFileUpgrade,
+  startInitialize,
+  deleteAppData,
   reportAppEvent,
   type UpgradeResponse
 } from './node-app-update'

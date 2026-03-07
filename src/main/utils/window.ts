@@ -538,10 +538,10 @@ const generateNotificationId = (): string => `${Date.now()}-${Math.random().toSt
 
 const sendNotificationToMainWindow = (data: NotificationData): void => {
   const mainWindow = getMainWindow()
-  log.info(`[Notification] 尝试发送通知: ${data.title} - ${data.message}, 主窗口: ${mainWindow ? '存在' : '不存在'}`)
+  // log.info(`[Notification] 尝试发送通知: ${data.title} - ${data.message}, 主窗口: ${mainWindow ? '存在' : '不存在'}`)
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('app-notification', data)
-    log.info('[Notification] 通知已发送到主窗口')
+    // log.info('[Notification] 通知已发送到主窗口')
   } else {
     log.warn('[Notification] 主窗口不存在，无法发送通知')
   }

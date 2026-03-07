@@ -9,15 +9,16 @@
  * 2. 更新检查逻辑 - 支持多种更新频率设置
  * 3. 自动下载更新包
  */
-
+import { existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import log from 'electron-log/main'
 import { getConfValue, setConfValue } from './config'
-import { downloadFile } from './fs-utils'
+import { deleteDir, downloadFile,extractZip4unzipit,getAppDir } from './fs-utils'
 import {showInfoNotification,showWarningNotification} from './window'
+import { buildUrlWithPort, cleanupServerProcess, getActualPort, handleNodeServer, loadMainWindowUrl } from './server-manager'
 
 // ==================== UpgradeLink API 客户端 ====================
-
+const extract_dir_name = 'dist_server'
 const { default: Client, Config, FileUpgradeRequest, AppReportRequest, ElectronVersionRequest } = require('@toolsetlink/upgradelink-api-typescript');
 
 /**
@@ -114,7 +115,8 @@ export async function getFileUpgrade(
       devModelKey: '',
       devKey: ''
     });
-
+    console.log(request);
+    
     const response = await client.FileUpgrade(request);
 
     console.log('\n文件升级信息响应:');
@@ -335,4 +337,135 @@ export const checkUpdateDetail = async (distVersion: number): Promise<UpdateChec
   }
 
   return { hasUpdate: false }
+}
+
+
+
+/**
+ * 处理 dist.zip 文件
+ * 包括：首次下载、检查更新、解压
+ */
+const handleDistZip = async (): Promise<void> => {
+  
+  log.debug('[handleDistZip] 开始执行...')
+  let clearDistPath = false
+
+  const appDir = getAppDir()
+  const distZipPath = join(appDir, 'dist.zip')
+  const distDir = join(appDir, extract_dir_name)
+  const serverPath = join(distDir, 'server', 'index.mjs')
+
+  // 从配置中读取 distVersion，如果不存在则设置为 1
+  let distVersion = getConfValue('distVersion', 1)
+  log.debug(`[handleDistZip] 当前版本号: ${distVersion}`)
+
+  try {
+    // 如果不存在 dist.zip，首次下载
+    if (!existsSync(distZipPath)) {
+      showInfoNotification('首次下载','正在下载程序...请稍后...')
+      log.info('[handleDistZip] dist.zip 不存在，开始首次下载...')
+      const distUrl = `https://api.upgrade.toolsetlink.com/v1/file/download?fileKey=${import.meta.env.VITE_UL_CONF_FILEKEY!}`
+      log.debug(`[handleDistZip] 下载URL: ${distUrl}`)
+      await downloadFile(distUrl, distZipPath)
+      log.info('[handleDistZip] 首次下载完成')
+    } else {
+      log.debug('[handleDistZip] dist.zip 已存在，检查更新...')
+      clearDistPath = await checkUpdate(distVersion)
+      log.debug(`[handleDistZip] 检查更新完成，clearDistPath: ${clearDistPath}`)
+    }
+  } catch (error) {
+    log.error('[handleDistZip] 下载/检查更新阶段出错:', error)
+    throw error
+  }
+
+  // 解压到 dist 文件夹
+  log.debug('[handleDistZip] 进入解压阶段...')
+  log.debug(
+    `[handleDistZip] clearDistPath: ${clearDistPath}, serverPath存在: ${existsSync(serverPath)}`
+  )
+
+  if (clearDistPath || !existsSync(serverPath)) {
+    if (clearDistPath) {
+      log.debug('[handleDistZip] 开始清理dist文件夹...')
+      try {
+        await deleteDir(extract_dir_name)
+        log.debug('[handleDistZip] 清理dist文件夹完成')
+      } catch (error) {
+        log.error('[handleDistZip] 清理dist文件夹出错:', error)
+        throw error
+      }
+    }
+
+    log.debug('[handleDistZip] 开始解压程序到: ' + distDir)
+
+    if (!existsSync(distDir)) {
+      log.debug('[handleDistZip] distDir 不存在，创建目录...')
+      try {
+        mkdirSync(distDir, { recursive: true })
+        log.debug('[handleDistZip] 目录创建完成')
+      } catch (error) {
+        log.error('[handleDistZip] 创建目录出错:', error)
+        throw error
+      }
+    }
+
+    log.debug('[handleDistZip] 开始调用 extractZip4unzipit...')
+    log.debug(`[handleDistZip] 解压参数 - 源文件: ${distZipPath}, 目标目录: ${distDir}`)
+
+    try {
+      await extractZip4unzipit(distZipPath, distDir)
+      log.info('[handleDistZip] extractZip4unzipit 解压完成')
+    } catch (error) {
+      log.error('[handleDistZip] extractZip4unzipit 解压出错:', error)
+      throw error
+    }
+  } else {
+    log.debug('[handleDistZip] 程序目录已存在，跳过解压')
+  }
+
+  log.debug('[handleDistZip] 执行完成')
+}
+
+/**
+ * 清理程序数据
+ */
+export const deleteAppData = async (): Promise<void> => {
+  log.info('清理程序目录...')
+  cleanupServerProcess()
+  await deleteDir(extract_dir_name)
+  await deleteDir('dist.zip')
+}
+
+
+/**
+ * 启动初始化流程
+ * 这是主要的初始化入口函数
+ */
+export const startInitialize = async (): Promise<void> => {
+  setConfValue('nodeStart', 'false')
+
+  const appDir = getAppDir()
+  const distDir = join(appDir, extract_dir_name)
+  const serverPath = join(distDir, 'server', 'index.mjs')
+
+  // 处理 dist.zip（下载/检查更新/解压）
+  await handleDistZip()
+
+  // 检查服务器文件是否存在
+  if (!existsSync(serverPath)) {
+    log.warn(`错误: 服务器文件不存在: ${serverPath}`)
+    throw new Error(`服务器文件不存在: ${serverPath}`)
+  }
+
+  // 启动 Node 服务
+  const originalUrl = import.meta.env.VITE_UL_CONF_URL!
+  await handleNodeServer(serverPath, originalUrl)
+
+  // 加载主窗口 URL
+  const finalUrl =
+    getActualPort() !== null
+      ? buildUrlWithPort(originalUrl, getActualPort()!)
+      : originalUrl
+
+  await loadMainWindowUrl(finalUrl)
 }

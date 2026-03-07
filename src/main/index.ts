@@ -1,17 +1,14 @@
 import { app, BrowserWindow, ipcMain, dialog, session } from 'electron'
 import { join } from 'path'
 import log from 'electron-log/main'
-import { LogFileWatcher } from './utils'
-import { autoUpdater } from "electron-updater"
+import { LogFileWatcher } from './utils/index'
 //@ts-ignore
 import { electronApp, optimizer } from '@electron-toolkit/utils'
-import { startInitialize,deleteAppData, cleanupServerProcess, addLog2Vue, sendLatestLogToMainWindow, sleep, getAppDir,isPortInUse, sendInitProgress } from './utils'
+import { startInitialize,deleteAppData, cleanupServerProcess, addLog2Vue, sendLatestLogToMainWindow, sleep, getAppDir,isPortInUse, sendInitProgress
+  ,setDownloadProgressCallback,sendDownloadProgress , type NotificationType} from './utils/index'
 import { getConfValue, setConfValue, clearConf, getEnvConf } from './utils/config'
-import { createMainWindow, ensureMenuCreated } from './utils'
-import { showUpdateNotification, showInfoNotification, showSuccessNotification, showWarningNotification, showErrorNotification, showNotification, type NotificationType, type NotificationData } from './utils/window'
-import { checkElectronUpdrate } from './utils/electron-update'
-import { setDownloadProgressCallback } from './utils/fs-utils'
-import { sendDownloadProgress } from './utils/window'
+import { createMainWindow, ensureMenuCreated } from './utils/index'
+
 
 // 设置下载进度回调（避免循环依赖）
 setDownloadProgressCallback((visible, progress, isDownloading) => {
@@ -41,8 +38,10 @@ const listingLog = async () =>{
   isRendererReady = true
   // 先清理旧的监听（避免重复监听）
   if (logWatcher) {
+    log.info('[listingLog] 清理旧的日志监听器')
     logWatcher.cleanup()
   }
+  log.info('[listingLog] 创建新的日志监听器')
   // 创建新的监听器实例
   logWatcher = new LogFileWatcher(log.transports.file.getFile().path)
 
@@ -73,14 +72,19 @@ const listingLog = async () =>{
 }
 // 初始化程序
 const runInitialization = async () => {
-  if (initializationStarted) return
+  if (initializationStarted) {
+    log.warn('[runInitialization] 初始化已在进行中，跳过重复调用')
+    return
+  }
   initializationStarted = true
+  log.info('[runInitialization] 开始初始化')
   try {
   
     await listingLog()
     await sleep(200)
     
     await startInitialize()
+    log.info('[runInitialization] 初始化完成')
   } catch (error) {
     const errorMessage = `应用初始化失败: ${(error as Error).message}`
     log.warn('应用初始化失败:', error)
