@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>主题配置生成器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f5f5;
+    }
+    .color-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .color-picker {
+      width: 40px;
+      height: 40px;
+      border: 2px solid #333;
+      border-radius: 4px;
+      cursor: pointer;
+      padding: 0;
+      overflow: hidden;
+    }
+    .color-picker::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+    .color-picker::-webkit-color-swatch {
+      border: none;
+    }
+    .hex-input {
+      width: 100px;
+      padding: 8px 12px;
+      border: 2px solid #333;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 14px;
+      text-transform: uppercase;
+    }
+    .preview-card {
+      transition: all 0.3s ease;
+    }
+    .range-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: #ddd;
+      outline: none;
+    }
+    .range-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #333;
+      cursor: pointer;
+      border: 2px solid #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .code-block {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .token-keyword { color: #569cd6; }
+    .token-string { color: #ce9178; }
+    .token-comment { color: #6a9955; }
+    .token-variable { color: #9cdcfe; }
+    .token-function { color: #dcdcaa; }
+    .token-number { color: #b5cea8; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="max-w-7xl mx-auto p-6">
+    <!-- 头部 -->
+    <header class="mb-8">
+      <h1 class="text-4xl font-black text-gray-900 mb-2">🎨 主题配置生成器</h1>
+      <p class="text-gray-600">可视化自定义主题配置，实时预览效果，一键生成代码</p>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- 左侧：配置面板 -->
+      <div class="space-y-6">
+        <!-- 背景颜色 -->
+        <div class="bg-white rounded-lg shadow-lg border-2 border-gray-900 p-6">
+          <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <span>🖼️</span> 背景颜色
+          </h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="color-config">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">主背景色</label>
+              <div class="color-input-wrapper">
+                <input type="color" id="bgPrimary" class="color-picker" value="#FAF9F6">
+                <input type="text" class="hex-input" id="bgPrimaryHex" value="#FAF9F6">
+              </div>
+            </div>
+            <div class="color-config">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">装饰蓝</label>
+              <div class="color-input-wrapper">
+                <input type="color" id="bgAccentBlue" class="color-picker" value="#B8D4E8">
+                <input type="text" class="hex-input" id="bgAccentBlueHex" value="#B8D4E8">
+              </div>
+            </div>
+            <div class="color-config">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">浅蓝色</label>
+              <div class="color-input-wrapper">
+                <input type="color" id="bgAccentBlueLight" class="color-picker" value="#A7C7E7">
+                <input type="text" class="hex-input" id="bgAccentBlueLightHex" value="#A7C7E7">
+              </div>
+            </div>
+            <div class="color-config">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">装饰橙</label>
+              <div class="color-input-wrapper">
+                <input type="color" id="bgAccentOrange" class="color-picker" value="#FFB6A3">
+                <input type="text" class="hex-input" id="bgAccentOrangeHex" value="#FFB6A3">
+              </div>
+            </div>
+            <div class="color-config">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">浅橙色</label>
+              <div class="color-input-wrapper">
+                <input type="color" id="bgAccentOrangeLight" class="color-picker" value="#FFD4C8">
+                <input type="text" class="hex-input" id="bgAccentOrangeLightHex" value="#FFD4C8">
+              </div>
+            </div>
+            <div class="color-config">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">深灰色</label>
+              <div class="color-input-wrapper">
+                <input type="color" id="bgGray900" class="color-picker" value="#111827">
+                <input type="text" class="hex-input" id="bgGray900Hex" value="#111827">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 文字颜色 -->
+        <div class="bg-white rounded-lg shadow-lg border-2 border-gray-900 p-6">
+          <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <span>📝</span> 文字颜色
+          </h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="color-config">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">主文字色</label>
+              <div class="color-input-wrapper">
+                <input type="color" id="textPrimary" class="color-picker" value="#111827">
+                <input type="text" class="hex-input" id="textPrimaryHex" value="#111827">
+              </div>
+            </div>
+            <div class="color-config">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">次要文字</label>
+              <div class="color-input-wrapper">
+                <input type="color" id="textSecondary" class="color-picker" value="#1f2937">
+                <input type="text" class="hex-input" id="textSecondaryHex" value="#1f2937">
+              </div>
+            </div>
+            <div class="color-config">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">辅助文字</label>
+              <div class="color-input-wrapper">
+                <input type="color" id="textMuted" class="color-picker" value="#374151">
+                <input type="text" class="hex-input" id="textMutedHex" value="#374151">
+              </div>
+            </div>
+            <div class="color-config">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">浅色文字</label>
+              <div class="color-input-wrapper">
+                <input type="color" id="textLight" class="color-picker" value="#e5e7eb">
+                <input type="text" class="hex-input" id="textLightHex" value="#e5e7eb">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 边框和阴影 -->
+        <div class="bg-white rounded-lg shadow-lg border-2 border-gray-900 p-6">
+          <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <span>📐</span> 边框与阴影
+          </h2>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-2">边框颜色</label>
+              <div class="color-input-wrapper">
+                <input type="color" id="borderColor" class="color-picker" value="#111827">
+                <input type="text" class="hex-input" id="borderColorHex" value="#111827">
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-2">
+                边框宽度: <span id="borderWidthValue">4</span>px
+              </label>
+              <input type="range" id="borderWidth" class="range-slider" min="0" max="8" value="4">
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-2">
+                阴影偏移: <span id="shadowOffsetValue">6</span>px
+              </label>
+              <input type="range" id="shadowOffset" class="range-slider" min="0" max="12" value="6">
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-2">阴影颜色</label>
+              <div class="color-input-wrapper">
+                <input type="color" id="shadowColor" class="color-picker" value="#000000">
+                <input type="text" class="hex-input" id="shadowColorHex" value="#000000">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 预设主题 -->
+        <div class="bg-white rounded-lg shadow-lg border-2 border-gray-900 p-6">
+          <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <span>🎭</span> 预设主题
+          </h2>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <button onclick="applyPreset('default')" class="preset-btn px-4 py-2 bg-gray-100 hover:bg-gray-200 border-2 border-gray-900 rounded font-semibold transition-colors">
+              默认主题
+            </button>
+            <button onclick="applyPreset('dark')" class="preset-btn px-4 py-2 bg-gray-800 text-white hover:bg-gray-700 border-2 border-gray-900 rounded font-semibold transition-colors">
+              暗黑主题
+            </button>
+            <button onclick="applyPreset('pink')" class="preset-btn px-4 py-2 bg-pink-200 hover:bg-pink-300 border-2 border-gray-900 rounded font-semibold transition-colors">
+              粉色少女
+            </button>
+            <button onclick="applyPreset('forest')" class="preset-btn px-4 py-2 bg-green-200 hover:bg-green-300 border-2 border-gray-900 rounded font-semibold transition-colors">
+              森林绿
+            </button>
+            <button onclick="applyPreset('ocean')" class="preset-btn px-4 py-2 bg-blue-200 hover:bg-blue-300 border-2 border-gray-900 rounded font-semibold transition-colors">
+              海洋蓝
+            </button>
+            <button onclick="applyPreset('sunset')" class="preset-btn px-4 py-2 bg-orange-200 hover:bg-orange-300 border-2 border-gray-900 rounded font-semibold transition-colors">
+              日落橙
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧：预览和代码 -->
+      <div class="space-y-6">
+        <!-- 实时预览 -->
+        <div class="bg-white rounded-lg shadow-lg border-2 border-gray-900 p-6">
+          <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <span>👁️</span> 实时预览
+          </h2>
+          <div id="previewContainer" class="p-6 rounded-lg transition-all duration-300" style="background-color: #FAF9F6;">
+            <!-- 页面标题预览 -->
+            <div class="mb-6">
+              <h1 id="previewTitle" class="text-3xl font-black mb-2 transition-colors duration-300" style="color: #111827;">
+                页面标题
+              </h1>
+              <div id="previewUnderline" class="h-1.5 w-20 transition-colors duration-300" style="background-color: #111827;"></div>
+            </div>
+
+            <!-- 卡片预览 -->
+            <div id="previewCard" class="p-6 mb-4 transition-all duration-300" style="background-color: #ffffff; border: 4px solid #111827; box-shadow: 6px 6px 0px 0px rgba(0,0,0,1);">
+              <h3 id="previewCardTitle" class="text-xl font-black mb-3 pb-3 border-b-2 transition-colors duration-300" style="color: #111827; border-color: #111827;">
+                卡片标题
+              </h3>
+              <p id="previewCardText" class="mb-4 transition-colors duration-300" style="color: #374151;">
+                这是卡片内容的示例文字，展示了主题配置的实际效果。
+              </p>
+              <div class="flex gap-3">
+                <button id="previewBtnPrimary" class="px-4 py-2 font-black transition-all duration-300" style="background-color: #B8D4E8; border: 2px solid #111827; box-shadow: 4px 4px 0px 0px rgba(0,0,0,1); color: #111827;">
+                  主按钮
+                </button>
+                <button id="previewBtnSecondary" class="px-4 py-2 font-black transition-all duration-300" style="background-color: #FFB6A3; border: 2px solid #111827; box-shadow: 4px 4px 0px 0px rgba(0,0,0,1); color: #111827;">
+                  次要按钮
+                </button>
+              </div>
+            </div>
+
+            <!-- 标签预览 -->
+            <div class="flex flex-wrap gap-2">
+              <span id="previewTag1" class="px-3 py-1.5 text-xs font-bold border-2 transition-all duration-300" style="background-color: #B8D4E8; border-color: #111827; color: #111827;">
+                标签1
+              </span>
+              <span id="previewTag2" class="px-3 py-1.5 text-xs font-bold border-2 transition-all duration-300" style="background-color: #FFD4C8; border-color: #111827; color: #111827;">
+                标签2
+              </span>
+              <span id="previewTag3" class="px-3 py-1.5 text-xs font-bold border-2 transition-all duration-300" style="background-color: #A7C7E7; border-color: #111827; color: #111827;">
+                选中标签
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 生成的代码 -->
+        <div class="bg-white rounded-lg shadow-lg border-2 border-gray-900 p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <span>💻</span> 生成的代码
+            </h2>
+            <button onclick="copyCode()" class="px-4 py-2 bg-gray-900 text-white font-semibold rounded hover:bg-gray-800 transition-colors flex items-center gap-2">
+              <span>📋</span> 复制代码
+            </button>
+          </div>
+          <div id="codeOutput" class="code-block"></div>
+        </div>
+
+        <!-- 使用说明 -->
+        <div class="bg-white rounded-lg shadow-lg border-2 border-gray-900 p-6">
+          <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <span>📖</span> 使用说明
+          </h2>
+          <ol class="list-decimal list-inside space-y-2 text-gray-700">
+            <li>调整左侧的颜色和样式配置</li>
+            <li>在右侧实时预览效果</li>
+            <li>满意后点击"复制代码"按钮</li>
+            <li>将代码粘贴到 <code class="bg-gray-100 px-2 py-1 rounded">src/renderer/src/config/theme.config.ts</code></li>
+            <li>重新构建应用即可生效</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 预设主题配置
+    const presets = {
+      default: {
+        bgPrimary: '#FAF9F6',
+        bgAccentBlue: '#B8D4E8',
+        bgAccentBlueLight: '#A7C7E7',
+        bgAccentOrange: '#FFB6A3',
+        bgAccentOrangeLight: '#FFD4C8',
+        bgGray900: '#111827',
+        textPrimary: '#111827',
+        textSecondary: '#1f2937',
+        textMuted: '#374151',
+        textLight: '#e5e7eb',
+        borderColor: '#111827',
+        borderWidth: 4,
+        shadowOffset: 6,
+        shadowColor: '#000000'
+      },
+      dark: {
+        bgPrimary: '#1a1a2e',
+        bgAccentBlue: '#16213e',
+        bgAccentBlueLight: '#0f3460',
+        bgAccentOrange: '#e94560',
+        bgAccentOrangeLight: '#ff6b6b',
+        bgGray900: '#ffffff',
+        textPrimary: '#ffffff',
+        textSecondary: '#e5e7eb',
+        textMuted: '#d1d5db',
+        textLight: '#6b7280',
+        borderColor: '#ffffff',
+        borderWidth: 2,
+        shadowOffset: 4,
+        shadowColor: '#ffffff'
+      },
+      pink: {
+        bgPrimary: '#FFF0F5',
+        bgAccentBlue: '#FFB6C1',
+        bgAccentBlueLight: '#FFC0CB',
+        bgAccentOrange: '#FF69B4',
+        bgAccentOrangeLight: '#FF1493',
+        bgGray900: '#4a4a4a',
+        textPrimary: '#4a4a4a',
+        textSecondary: '#666666',
+        textMuted: '#888888',
+        textLight: '#cccccc',
+        borderColor: '#FF69B4',
+        borderWidth: 3,
+        shadowOffset: 5,
+        shadowColor: '#FF69B4'
+      },
+      forest: {
+        bgPrimary: '#F0FFF4',
+        bgAccentBlue: '#9AE6B4',
+        bgAccentBlueLight: '#C6F6D5',
+        bgAccentOrange: '#68D391',
+        bgAccentOrangeLight: '#48BB78',
+        bgGray900: '#22543D',
+        textPrimary: '#22543D',
+        textSecondary: '#276749',
+        textMuted: '#2F855A',
+        textLight: '#9AE6B4',
+        borderColor: '#22543D',
+        borderWidth: 3,
+        shadowOffset: 5,
+        shadowColor: '#22543D'
+      },
+      ocean: {
+        bgPrimary: '#EBF8FF',
+        bgAccentBlue: '#90CDF4',
+        bgAccentBlueLight: '#BEE3F8',
+        bgAccentOrange: '#4299E1',
+        bgAccentOrangeLight: '#3182CE',
+        bgGray900: '#2C5282',
+        textPrimary: '#2C5282',
+        textSecondary: '#2B6CB0',
+        textMuted: '#4299E1',
+        textLight: '#90CDF4',
+        borderColor: '#2C5282',
+        borderWidth: 3,
+        shadowOffset: 5,
+        shadowColor: '#2C5282'
+      },
+      sunset: {
+        bgPrimary: '#FFFAF0',
+        bgAccentBlue: '#FBD38D',
+        bgAccentBlueLight: '#F6E05E',
+        bgAccentOrange: '#ED8936',
+        bgAccentOrangeLight: '#DD6B20',
+        bgGray900: '#7C2D12',
+        textPrimary: '#7C2D12',
+        textSecondary: '#9C4221',
+        textMuted: '#C05621',
+        textLight: '#FBD38D',
+        borderColor: '#7C2D12',
+        borderWidth: 3,
+        shadowOffset: 5,
+        shadowColor: '#7C2D12'
+      }
+    };
+
+    // 获取所有配置值
+    function getConfig() {
+      return {
+        bgPrimary: document.getElementById('bgPrimary').value,
+        bgAccentBlue: document.getElementById('bgAccentBlue').value,
+        bgAccentBlueLight: document.getElementById('bgAccentBlueLight').value,
+        bgAccentOrange: document.getElementById('bgAccentOrange').value,
+        bgAccentOrangeLight: document.getElementById('bgAccentOrangeLight').value,
+        bgGray900: document.getElementById('bgGray900').value,
+        textPrimary: document.getElementById('textPrimary').value,
+        textSecondary: document.getElementById('textSecondary').value,
+        textMuted: document.getElementById('textMuted').value,
+        textLight: document.getElementById('textLight').value,
+        borderColor: document.getElementById('borderColor').value,
+        borderWidth: document.getElementById('borderWidth').value,
+        shadowOffset: document.getElementById('shadowOffset').value,
+        shadowColor: document.getElementById('shadowColor').value
+      };
+    }
+
+    // 更新预览
+    function updatePreview() {
+      const config = getConfig();
+      const shadowRgba = hexToRgba(config.shadowColor, 1);
+
+      // 更新背景
+      document.getElementById('previewContainer').style.backgroundColor = config.bgPrimary;
+
+      // 更新标题
+      document.getElementById('previewTitle').style.color = config.textPrimary;
+      document.getElementById('previewUnderline').style.backgroundColor = config.bgGray900;
+
+      // 更新卡片
+      const card = document.getElementById('previewCard');
+      card.style.backgroundColor = '#ffffff';
+      card.style.border = `${config.borderWidth}px solid ${config.borderColor}`;
+      card.style.boxShadow = `${config.shadowOffset}px ${config.shadowOffset}px 0px 0px ${shadowRgba}`;
+
+      // 更新卡片标题
+      document.getElementById('previewCardTitle').style.color = config.textPrimary;
+      document.getElementById('previewCardTitle').style.borderColor = config.borderColor;
+
+      // 更新卡片文字
+      document.getElementById('previewCardText').style.color = config.textMuted;
+
+      // 更新按钮
+      const btnPrimary = document.getElementById('previewBtnPrimary');
+      btnPrimary.style.backgroundColor = config.bgAccentBlue;
+      btnPrimary.style.border = `${Math.max(2, config.borderWidth - 2)}px solid ${config.borderColor}`;
+      btnPrimary.style.boxShadow = `${Math.max(2, config.shadowOffset - 2)}px ${Math.max(2, config.shadowOffset - 2)}px 0px 0px ${shadowRgba}`;
+      btnPrimary.style.color = config.textPrimary;
+
+      const btnSecondary = document.getElementById('previewBtnSecondary');
+      btnSecondary.style.backgroundColor = config.bgAccentOrange;
+      btnSecondary.style.border = `${Math.max(2, config.borderWidth - 2)}px solid ${config.borderColor}`;
+      btnSecondary.style.boxShadow = `${Math.max(2, config.shadowOffset - 2)}px ${Math.max(2, config.shadowOffset - 2)}px 0px 0px ${shadowRgba}`;
+      btnSecondary.style.color = config.textPrimary;
+
+      // 更新标签
+      const tag1 = document.getElementById('previewTag1');
+      tag1.style.backgroundColor = config.bgAccentBlue;
+      tag1.style.borderColor = config.borderColor;
+      tag1.style.color = config.textPrimary;
+
+      const tag2 = document.getElementById('previewTag2');
+      tag2.style.backgroundColor = config.bgAccentOrangeLight;
+      tag2.style.borderColor = config.borderColor;
+      tag2.style.color = config.textPrimary;
+
+      const tag3 = document.getElementById('previewTag3');
+      tag3.style.backgroundColor = config.bgAccentBlueLight;
+      tag3.style.borderColor = config.borderColor;
+      tag3.style.color = config.textPrimary;
+
+      // 更新代码
+      generateCode(config);
+    }
+
+    // 生成代码
+    function generateCode(config) {
+      const code = `/**
+ * 主题配置
+ * 自定义主题 - 由主题生成器创建
+ */
+
+// 背景颜色
+export const bgColors = {
+  // 主背景色
+  primary: 'bg-[${config.bgPrimary}]',
+  // 装饰色 - 蓝色系
+  accentBlue: 'bg-[${config.bgAccentBlue}]',
+  accentBlueLight: 'bg-[${config.bgAccentBlueLight}]',
+  // 装饰色 - 橙色系
+  accentOrange: 'bg-[${config.bgAccentOrange}]',
+  accentOrangeLight: 'bg-[${config.bgAccentOrangeLight}]',
+  // 中性色
+  white: 'bg-white',
+  gray50: 'bg-gray-50',
+  gray900: 'bg-[${config.bgGray900}]',
+  // 透明背景
+  transparent: 'bg-transparent'
+} as const
+
+// 文字颜色
+export const textColors = {
+  // 主文字色
+  primary: 'text-[${config.textPrimary}]',
+  // 次要文字色
+  secondary: 'text-[${config.textSecondary}]',
+  // 辅助文字色
+  muted: 'text-[${config.textMuted}]',
+  light: 'text-[${config.textLight}]',
+  // 反色文字
+  inverse: 'text-white',
+  // 状态色
+  success: 'text-green-400',
+  info: 'text-blue-400',
+  warning: 'text-yellow-300',
+  error: 'text-red-400'
+} as const
+
+// 边框颜色
+export const borderColors = {
+  primary: 'border-[${config.borderColor}]',
+  secondary: 'border-gray-200',
+  light: 'border-white',
+  transparent: 'border-transparent'
+} as const
+
+// 阴影样式
+export const shadows = {
+  // 卡片阴影
+  card: 'shadow-[${config.shadowOffset}px_${config.shadowOffset}px_0px_0px_${config.shadowColor.replace('#', '%23')}]',
+  cardHover: 'hover:shadow-[${parseInt(config.shadowOffset) + 1}px_${parseInt(config.shadowOffset) + 1}px_0px_0px_${config.shadowColor.replace('#', '%23')}]',
+  // 按钮阴影
+  button: 'shadow-[${Math.max(2, parseInt(config.shadowOffset) - 2)}px_${Math.max(2, parseInt(config.shadowOffset) - 2)}px_0px_0px_${config.shadowColor.replace('#', '%23')}]',
+  buttonHover: 'hover:shadow-[${Math.max(3, parseInt(config.shadowOffset) - 1)}px_${Math.max(3, parseInt(config.shadowOffset) - 1)}px_0px_0px_${config.shadowColor.replace('#', '%23')}]',
+  buttonActive: 'active:shadow-[2px_2px_0px_0px_${config.shadowColor.replace('#', '%23')}]',
+  // 小按钮阴影
+  buttonSm: 'shadow-[${Math.max(2, parseInt(config.shadowOffset) - 3)}px_${Math.max(2, parseInt(config.shadowOffset) - 3)}px_0px_0px_${config.shadowColor.replace('#', '%23')}]',
+  buttonSmHover: 'hover:shadow-[${Math.max(3, parseInt(config.shadowOffset) - 2)}px_${Math.max(3, parseInt(config.shadowOffset) - 2)}px_0px_0px_${config.shadowColor.replace('#', '%23')}]',
+  // 无阴影
+  none: 'shadow-none'
+} as const
+
+// 边框样式
+export const borders = {
+  // 主边框
+  primary: 'border-${config.borderWidth} border-[${config.borderColor}]',
+  secondary: 'border-2 border-[${config.borderColor}]',
+  thin: 'border border-[${config.borderColor}]',
+  // 浅色边框
+  light: 'border-2 border-gray-200',
+  thinLight: 'border border-gray-200',
+  // 无边框
+  none: 'border-0'
+} as const
+
+// 通用组件样式组合
+export const componentStyles = {
+  // 卡片容器
+  card: 'bg-white border-${config.borderWidth} border-[${config.borderColor}] shadow-[${config.shadowOffset}px_${config.shadowOffset}px_0px_0px_${config.shadowColor.replace('#', '%23')}] hover:shadow-[${parseInt(config.shadowOffset) + 1}px_${parseInt(config.shadowOffset) + 1}px_0px_0px_${config.shadowColor.replace('#', '%23')}] hover:-translate-y-0.5 transition-all p-8',
+  // 卡片内容区
+  cardContent: 'p-6',
+  // 卡片标题
+  cardTitle: 'text-xl font-black mb-5 tracking-tight text-[${config.textPrimary}] pb-3 border-b-2 border-[${config.borderColor}]',
+  // 页面容器
+  pageContainer: 'fixed inset-0 overflow-auto bg-[${config.bgPrimary}]',
+  // 页面内容区
+  pageContent: 'relative z-10 min-h-screen p-6 md:p-12',
+  // 页面标题
+  pageTitle: 'text-4xl md:text-5xl font-black tracking-tight text-[${config.textPrimary}] mb-3',
+  // 标题下划线
+  titleUnderline: 'h-1.5 w-20 bg-[${config.bgGray900}]',
+  // 主按钮
+  primaryButton: 'bg-[${config.bgAccentBlue}] border-2 border-[${config.borderColor}] font-black text-base tracking-tight text-[${config.textPrimary}] shadow-[${Math.max(2, parseInt(config.shadowOffset) - 2)}px_${Math.max(2, parseInt(config.shadowOffset) - 2)}px_0px_0px_${config.shadowColor.replace('#', '%23')}] hover:shadow-[${Math.max(3, parseInt(config.shadowOffset) - 1)}px_${Math.max(3, parseInt(config.shadowOffset) - 1)}px_0px_0px_${config.shadowColor.replace('#', '%23')}] hover:-translate-y-1 transition-all active:shadow-[2px_2px_0px_0px_${config.shadowColor.replace('#', '%23')}] active:translate-y-0',
+  // 次要按钮
+  secondaryButton: 'bg-white border-2 border-[${config.borderColor}] font-black text-base tracking-tight text-[${config.textPrimary}] shadow-[${Math.max(2, parseInt(config.shadowOffset) - 2)}px_${Math.max(2, parseInt(config.shadowOffset) - 2)}px_0px_0px_${config.shadowColor.replace('#', '%23')}] hover:shadow-[${Math.max(3, parseInt(config.shadowOffset) - 1)}px_${Math.max(3, parseInt(config.shadowOffset) - 1)}px_0px_0px_${config.shadowColor.replace('#', '%23')}] hover:-translate-y-1 transition-all active:shadow-[2px_2px_0px_0px_${config.shadowColor.replace('#', '%23')}] active:translate-y-0',
+  // 小按钮（标签样式）
+  tagButton: 'font-bold text-xs px-3 py-1.5 border-2 border-[${config.borderColor}] hover:translate-x-0.5 hover:translate-y-0.5 transition-all active:translate-x-1 active:translate-y-1',
+  // 选中状态标签
+  selectedTag: 'bg-[${config.bgAccentBlue}] border-2 border-[${config.borderColor}] shadow-[${Math.max(2, parseInt(config.shadowOffset) - 3)}px_${Math.max(2, parseInt(config.shadowOffset) - 3)}px_0px_0px_${config.shadowColor.replace('#', '%23')}]',
+  // 复选框选中状态
+  selectedCheckbox: 'bg-[${config.bgAccentOrangeLight}] border-2 border-[${config.borderColor}] shadow-[${Math.max(2, parseInt(config.shadowOffset) - 3)}px_${Math.max(2, parseInt(config.shadowOffset) - 3)}px_0px_0px_${config.shadowColor.replace('#', '%23')}]',
+  // 信息标签（蓝色背景）
+  infoTag: 'bg-[${config.bgAccentBlue}] text-[${config.textPrimary}] px-3 py-1 border-2 border-[${config.borderColor}]',
+  // 警告标签（橙色背景）
+  warningTag: 'bg-[${config.bgAccentOrangeLight}] text-[${config.textPrimary}] px-3 py-1 border-2 border-[${config.borderColor}]',
+  // 链接按钮（橙色背景）
+  linkButton: 'bg-[${config.bgAccentOrangeLight}] text-[${config.textPrimary}] border-3 border-[${config.borderColor}] font-bold shadow-[${Math.max(2, parseInt(config.shadowOffset) - 3)}px_${Math.max(2, parseInt(config.shadowOffset) - 3)}px_0px_0px_${config.shadowColor.replace('#', '%23')}] hover:shadow-[${Math.max(3, parseInt(config.shadowOffset) - 2)}px_${Math.max(3, parseInt(config.shadowOffset) - 2)}px_0px_0px_${config.shadowColor.replace('#', '%23')}] hover:-translate-y-0.5 transition-all active:shadow-[2px_2px_0px_0px_${config.shadowColor.replace('#', '%23')}] active:translate-y-0',
+  // 输入框
+  input: 'w-full p-3 border-${Math.min(4, parseInt(config.borderWidth))} border-[${config.borderColor}] font-bold text-base bg-white focus:outline-none focus:ring-2 focus:ring-[${config.borderColor}] text-[${config.textPrimary}]',
+  // 单选/复选框
+  checkbox: 'w-5 h-5 accent-[${config.bgGray900}] cursor-pointer',
+  // 日志容器
+  logContainer: 'bg-[${config.bgGray900}] text-white font-mono text-sm border-${config.borderWidth} border-[${config.borderColor}] p-4 overflow-y-auto flex-1 min-h-0',
+  // 日志行
+  logRow: 'flex gap-3 py-1 px-2 hover:bg-white/10 transition-colors border-b border-white/10'
+} as const
+
+// 布局相关
+export const layout = {
+  // 最大宽度容器
+  maxWidth: 'max-w-4xl mx-auto',
+  maxWidthWide: 'max-w-5xl mx-auto',
+  // 网格布局
+  grid2: 'grid grid-cols-1 md:grid-cols-2 gap-6',
+  grid3: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3',
+  // Flex 布局
+  flexBetween: 'flex justify-between items-center',
+  flexCol: 'flex flex-col',
+  flexRow: 'flex flex-row'
+} as const
+
+// 动画相关
+export const animations = {
+  // 漂浮动画
+  float: 'animate-[floatRed_6s_ease-in-out_infinite]',
+  drift: 'animate-[drift_6s_ease-in-out_infinite]'
+} as const
+
+// 导出完整主题配置
+export const theme = {
+  bg: bgColors,
+  text: textColors,
+  border: borderColors,
+  shadow: shadows,
+  borders,
+  component: componentStyles,
+  layout,
+  animation: animations
+} as const
+
+export default theme`;
+
+      // 转义HTML特殊字符
+      const escapedCode = code
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      // 语法高亮
+      const highlightedCode = escapedCode
+        // .replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="token-comment">$1</span>')
+        .replace(/(export|const|as|import|from|default)/g, '<span class="token-keyword">$1</span>')
+        .replace(/('[^']*')/g, '<span class="token-string">$1</span>')
+        .replace(/(`[^`]*`)/g, '<span class="token-string">$1</span>')
+        .replace(/(\d+)/g, '<span class="token-number">$1</span>');
+
+      document.getElementById('codeOutput').innerHTML = highlightedCode;
+    }
+
+    // 颜色转RGBA
+    function hexToRgba(hex, alpha) {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `rgba(${r},${g},${b},${alpha})`;
+    }
+
+    // 应用预设
+    function applyPreset(name) {
+      const preset = presets[name];
+      if (!preset) return;
+
+      // 更新所有输入
+      Object.keys(preset).forEach(key => {
+        const input = document.getElementById(key);
+        const hexInput = document.getElementById(key + 'Hex');
+        if (input) input.value = preset[key];
+        if (hexInput) hexInput.value = preset[key];
+      });
+
+      // 更新显示值
+      document.getElementById('borderWidthValue').textContent = preset.borderWidth;
+      document.getElementById('shadowOffsetValue').textContent = preset.shadowOffset;
+
+      // 更新预览
+      updatePreview();
+    }
+
+    // 复制代码
+    function copyCode() {
+      const code = document.getElementById('codeOutput').textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        alert('代码已复制到剪贴板！');
+      }).catch(() => {
+        alert('复制失败，请手动复制');
+      });
+    }
+
+    // 绑定事件
+    document.querySelectorAll('input[type="color"]').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const hexInput = document.getElementById(e.target.id + 'Hex');
+        if (hexInput) hexInput.value = e.target.value;
+        updatePreview();
+      });
+    });
+
+    document.querySelectorAll('.hex-input').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const colorInput = document.getElementById(e.target.id.replace('Hex', ''));
+        if (colorInput && /^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+          colorInput.value = e.target.value;
+          updatePreview();
+        }
+      });
+    });
+
+    document.getElementById('borderWidth').addEventListener('input', (e) => {
+      document.getElementById('borderWidthValue').textContent = e.target.value;
+      updatePreview();
+    });
+
+    document.getElementById('shadowOffset').addEventListener('input', (e) => {
+      document.getElementById('shadowOffsetValue').textContent = e.target.value;
+      updatePreview();
+    });
+
+    // 初始化
+    updatePreview();
+  </script>
+</body>
+</html>

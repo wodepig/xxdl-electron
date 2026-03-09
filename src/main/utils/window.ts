@@ -506,7 +506,7 @@ const resetWindowsSizeAndPosition = (win: BrowserWindow, title: string): void =>
   const size = getConfValue(`${title}.size`, WINDOW_DEFAULTS.SIZE, 'window') as [number, number]
   const position = getConfValue(`${title}.position`, WINDOW_DEFAULTS.POSITION, 'window') as [number, number]
 
-  log.info(`恢复窗口 ${title} 尺寸:`, size, '位置:', position)
+  // log.info(`恢复窗口 ${title} 尺寸:`, size, '位置:', position)
   win.setSize(size[0], size[1])
   win.setPosition(position[0], position[1])
 }
