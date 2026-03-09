@@ -15,6 +15,22 @@ const qrCodeUrl = computed(() => {
 const authorInfo = ref<AuthorInfo>({})
 const links = ref<LinkInfo[]>([])
 
+// 图片放大弹窗状态
+const showImageModal = ref(false)
+const modalImageUrl = ref('')
+
+// 打开图片放大弹窗
+const openImageModal = (url: string): void => {
+  modalImageUrl.value = url
+  showImageModal.value = true
+}
+
+// 关闭图片放大弹窗
+const closeImageModal = (): void => {
+  showImageModal.value = false
+  modalImageUrl.value = ''
+}
+
 // 复制到剪贴板
 const copyToClipboard = async (text: string): Promise<void> => {
   try {
@@ -131,7 +147,9 @@ onMounted(() => {
 
         <!-- 右侧二维码 -->
         <div v-if="qrCodeUrl" class="flex flex-col items-center gap-3 lg:items-start">
-          <div :class="`border-3 border-gray-900 ${bg.white} p-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]`">
+          <div :class="`border-3 border-gray-900 ${bg.white} p-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer hover:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] transition-all hover:-translate-y-0.5`"
+               @click="openImageModal(qrCodeUrl)"
+               title="点击放大">
             <img :src="qrCodeUrl" alt="二维码" class="w-32 h-32 object-contain" />
           </div>
           <p :class="`text-xs font-bold ${bg.gray900} ${text.inverse} px-3 py-1.5 border-2 border-gray-900`">
@@ -155,4 +173,23 @@ onMounted(() => {
       </div>
     </div>
   </div>
+
+  <!-- 图片放大弹窗 -->
+  <Teleport to="body">
+    <Transition name="fade">
+      <div v-if="showImageModal"
+           class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+           @click="closeImageModal">
+        <div class="relative p-4 bg-white border-4 border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.5)]"
+             @click.stop>
+          <img :src="modalImageUrl" alt="放大图片" class="max-w-[80vw] max-h-[80vh] object-contain" />
+          <button @click="closeImageModal"
+                  class="absolute -top-3 -right-3 w-10 h-10 bg-gray-900 text-white rounded-full flex items-center justify-center font-bold text-lg hover:bg-gray-700 transition-colors border-2 border-white shadow-lg"
+                  title="关闭">
+            ×
+          </button>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
