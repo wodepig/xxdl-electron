@@ -8,7 +8,7 @@ import { is } from '@electron-toolkit/utils'
 import log from 'electron-log/main'
 
 // ==================== 常量定义 ====================
-
+// 主窗口名称，其他地方都用到 ,不要随便改. 会导致无法获取主窗口
 const MAIN_WINDOW_NAME = getEnvConf('VITE_APP_EXE_NAME')
 
 const WINDOW_NAMES = {
@@ -31,10 +31,10 @@ const WINDOW_ROUTES: Record<string, string> = {
 
 // 窗口默认配置
 const WINDOW_DEFAULTS = {
-  SIZE: [900, 970] as [number, number],
+  SIZE: [1450, 1000] as [number, number],
   POSITION: [745, 210] as [number, number],
-  WIDTH: 1000,
-  HEIGHT: 900
+  WIDTH: 1450,
+  HEIGHT: 1000
 } as const
 
 // 菜单创建标志，确保只创建一次
@@ -139,7 +139,7 @@ const createWindowConfig = (name: string, parent?: BrowserWindow | null): Electr
 const setupWindowEventListeners = (win: BrowserWindow, name: string, autoShow: boolean, parent?: BrowserWindow | null): void => {
   win.once('ready-to-show', () => {
     win.setTitle(name)
-    resetWindowsSizeAndPosition(name)
+    resetWindowsSizeAndPosition(win, name)
 
     if (autoShow) {
       win.show()
@@ -174,6 +174,19 @@ const setupWindowEventListeners = (win: BrowserWindow, name: string, autoShow: b
 }
 
 /**
+ * 显示查找提示
+ */
+const showFindHint = (mainWindow: BrowserWindow): void => {
+  dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: '提示',
+    message: '请使用菜单中的"在浏览器中打开"功能进行页面内搜索',
+    buttons: ['确定'],
+    defaultId: 0
+  })
+}
+
+/**
  * 创建右键菜单
  */
 const createContextMenu = (mainWindow: BrowserWindow) => Menu.buildFromTemplate([
@@ -182,6 +195,12 @@ const createContextMenu = (mainWindow: BrowserWindow) => Menu.buildFromTemplate(
   { label: '复制', role: 'copy' },
   { label: '粘贴', role: 'paste' },
   { label: '全选', role: 'selectAll' },
+  { type: 'separator' },
+  {
+    label: '查找',
+    accelerator: 'CmdOrCtrl+F',
+    click: () => showFindHint(mainWindow)
+  },
   { type: 'separator' },
   {
     label: '开发者工具',
@@ -206,6 +225,14 @@ export const createMainWindow = async (): Promise<BrowserWindow | null> => {
   mainWindow.webContents.on('context-menu', (event) => {
     event.preventDefault()
     if (!mainWindow.isDestroyed()) contextMenu.popup({ window: mainWindow })
+  })
+
+  // 注册 Ctrl+F 快捷键
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if ((input.control || input.meta) && input.key.toLowerCase() === 'f') {
+      event.preventDefault()
+      showFindHint(mainWindow)
+    }
   })
 
   return mainWindow
@@ -473,13 +500,13 @@ const promptAdminPassword = (): Promise<string | null> => {
 /**
  * 恢复窗口位置和大小
  */
-const resetWindowsSizeAndPosition = (title: string): void => {
-  const win = getWindowsByTitle(title)
-  if (!win) return
+const resetWindowsSizeAndPosition = (win: BrowserWindow, title: string): void => {
+  if (!win || win.isDestroyed()) return
 
   const size = getConfValue(`${title}.size`, WINDOW_DEFAULTS.SIZE, 'window') as [number, number]
   const position = getConfValue(`${title}.position`, WINDOW_DEFAULTS.POSITION, 'window') as [number, number]
 
+  log.info(`恢复窗口 ${title} 尺寸:`, size, '位置:', position)
   win.setSize(size[0], size[1])
   win.setPosition(position[0], position[1])
 }

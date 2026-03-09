@@ -11,6 +11,7 @@
  */
 import { existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
+import { app } from 'electron'
 import log from 'electron-log/main'
 import { getConfValue, setConfValue } from './config'
 import { deleteDir, downloadFile,extractZip4unzipit,getAppDir } from './fs-utils'
@@ -431,6 +432,8 @@ export const deleteAppData = async (): Promise<void> => {
  */
 export const startInitialize = async (): Promise<void> => {
   setConfValue('nodeStart', 'false')
+  // 从 Electron app 获取版本号（与 package.json 保持一致）
+  setConfValue('startExeVersion', app.getVersion())
 
   const appDir = getAppDir()
   const distDir = join(appDir, extract_dir_name)

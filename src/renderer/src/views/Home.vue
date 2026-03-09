@@ -1,6 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { resolveIconFromEnv } from '@renderer/utils/icon-utils'
+import { theme } from '@renderer/config/theme.config'
+
+// 主题配置
+const { bg, text, animation } = theme
+
+const router = useRouter()
 const appName = ref('')
 const appDesc = ref('')
 const appIcon = ref('')
@@ -9,11 +16,14 @@ const progress = ref(0)
 const authorInfo = ref<AuthorInfo>({})
 const testPort = ref(3000)
 const portCheckResult = ref<string>('')
+let progressTimer: ReturnType<typeof setInterval> | null = null
+
 // 计算图片 URL（支持通过 VITE_AUTHOR_WX_IMG 切换）
 const iconUrl = computed(() => {
   const url = resolveIconFromEnv(appIcon.value)
   return url
 })
+
 const getAppInfo = (): void => {
   try {
     setTimeout(() => {
@@ -75,22 +85,44 @@ const attachInitProgressListener = (): void => {
   })
 }
 
+
+
+// 监听进度变化，当达到100%时跳转
+watch(progress, (newVal) => {
+  if (newVal >= 100) {
+    // 进度完成，延迟跳转到关于页面
+    setTimeout(() => {
+      router.push('/about')
+    }, 500)
+  }
+})
+
 onMounted(() => {
   getAppInfo()
   attachLatestLogListener()
   attachInitProgressListener()
 
   // 如果没有主进程更新，使用默认的模拟进度
-  // const timer = setInterval(() => {
-  //   if (progress.value >= 100) {
-  //     clearInterval(timer)
-  //   } else {
-  //     // 只有在没有收到主进程进度更新时才自动增加
-  //     // 实际项目中可以添加一个标志位来判断
-  //     progress.value += 0.5
-  //   }
-  // }, 100)
+  progressTimer = setInterval(() => {
+    if (progress.value >= 100) {
+      if (progressTimer) {
+        clearInterval(progressTimer)
+        progressTimer = null
+      }
+    } else {
+      // 只有在没有收到主进程进度更新时才自动增加
+      progress.value += 0.5
+    }
+  }, 100)
 })
+
+onUnmounted(() => {
+  if (progressTimer) {
+    clearInterval(progressTimer)
+    progressTimer = null
+  }
+})
+
 
 // 测试端口占用检查
 const handleCheckPort = async (): Promise<void> => {
@@ -110,37 +142,31 @@ const handleCheckPort = async (): Promise<void> => {
     portCheckResult.value = `检查出错: ${(error as Error).message}`
   }
 }
-
-
 </script>
 
 <template>
-  <div class="fixed inset-0 overflow-hidden bg-[#FAF9F6] text-gray-900">
+  <div :class="`fixed inset-0 overflow-hidden ${bg.primary} ${text.primary}`">
     <!-- 柔和的装饰块 -->
     <div
-      class="absolute -top-[20vh] -left-[20vw] w-[140vw] h-[70vh]
-             bg-[#B8D4E8] rotate-[-8deg]"
+      :class="`absolute -top-[20vh] -left-[20vw] w-[140vw] h-[70vh] ${bg.accentBlue} rotate-[-8deg]`"
     />
 
     <!-- 橙色装饰方块（右下角） + 漂浮动画 -->
     <div
-      class="absolute bottom-[-40vh] right-[-15vw]
-             w-[80vw] max-w-[900px] h-[70vh]
-             bg-[#FFB6A3] rotate-[12deg]
-             animate-[floatRed_6s_ease-in-out_infinite]"
+      :class="`absolute bottom-[-40vh] right-[-15vw] w-[80vw] max-w-[900px] h-[70vh] ${bg.accentOrange} rotate-[12deg] ${animation.float}`"
     />
 
     <!-- 右上角符号替换 -->
-    <div class="absolute top-8 right-8 text-6xl font-black text-gray-900 opacity-50">
+    <div :class="`absolute top-8 right-8 text-6xl font-black ${text.primary} opacity-50`">
       🛠️
     </div>
 
     <!-- 点阵装饰 -->
-    <div class="absolute top-24 left-24 grid grid-cols-6 gap-2 opacity-20">
+    <div :class="`absolute top-24 left-24 grid grid-cols-6 gap-2 opacity-20`">
       <span
         v-for="i in 36"
         :key="i"
-        class="w-1.5 h-1.5 bg-gray-900 rounded-full"
+        :class="`w-1.5 h-1.5 ${bg.gray900} rounded-full`"
       />
     </div>
 
@@ -150,10 +176,7 @@ const handleCheckPort = async (): Promise<void> => {
       <div class="max-w-xl space-y-8">
         <!-- Logo -->
         <div
-          class="inline-flex items-center justify-center
-                 w-20 h-20 bg-gray-900 text-white
-                 text-3xl font-black tracking-tight border-4 border-gray-900
-                 animate-[drift_6s_ease-in-out_infinite]"
+          :class="`inline-flex items-center justify-center w-20 h-20 ${bg.gray900} ${text.inverse} text-3xl font-black tracking-tight border-4 border-gray-900 ${animation.drift}`"
         >
           <img :src="iconUrl" alt="应用图标" class="w-full h-full object-contain p-1" />
         </div>
@@ -164,7 +187,7 @@ const handleCheckPort = async (): Promise<void> => {
         </h1>
 
         <!-- 描述 -->
-        <p class="text-base md:text-lg max-w-md text-gray-800 font-medium">
+        <p :class="`text-base md:text-lg max-w-md ${text.secondary} font-medium`">
           {{ appDesc }}
         </p>
       </div>
@@ -176,35 +199,35 @@ const handleCheckPort = async (): Promise<void> => {
           <span>{{ Math.min(progress, 100).toFixed(0) }}%</span>
         </div>
 
-        <div class="h-3 bg-gray-900/20 border-2 border-gray-900 overflow-hidden">
+        <div :class="`h-3 ${bg.gray900}/20 border-2 border-gray-900 overflow-hidden`">
           <div
-            class="h-full bg-gray-900 transition-all duration-300"
+            :class="`h-full ${bg.gray900} transition-all duration-300`"
             :style="{ width: `${Math.min(progress, 100)}%` }"
           />
         </div>
 
-        <div class="text-xs font-bold tracking-wide text-gray-700">
+        <div :class="`text-xs font-bold tracking-wide ${text.muted}`">
           Electron · 2026
         </div>
 
         <!-- 端口测试区域 -->
-        <div v-if="false" class="mt-6 p-4 bg-white/50 border-2 border-gray-900 rounded-lg">
+        <div v-if="false" :class="`mt-6 p-4 ${bg.white}/50 border-2 border-gray-900 rounded-lg`">
           <div class="flex items-center gap-2 mb-2">
             <span class="text-sm font-bold">端口测试:</span>
             <input
               v-model.number="testPort"
               type="number"
-              class="w-24 px-2 py-1 text-sm border-2 border-gray-900 rounded"
+              :class="`w-24 px-2 py-1 text-sm border-2 border-gray-900 rounded`"
               placeholder="端口号"
             />
             <button
-              class="px-3 py-1 text-sm font-bold text-white bg-gray-900 border-2 border-gray-900 rounded hover:bg-gray-700 transition-colors"
+              :class="`px-3 py-1 text-sm font-bold ${text.inverse} ${bg.gray900} border-2 border-gray-900 rounded hover:bg-gray-700 transition-colors`"
               @click="handleCheckPort"
             >
               检查端口
             </button>
           </div>
-          <div v-if="portCheckResult" class="text-sm font-medium text-gray-800">
+          <div v-if="portCheckResult" :class="`text-sm font-medium ${text.secondary}`">
             结果: {{ portCheckResult }}
           </div>
         </div>

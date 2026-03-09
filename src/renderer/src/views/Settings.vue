@@ -1,91 +1,9 @@
-<template>
-  <div class="fixed inset-0 overflow-auto bg-[#FAF9F6]">
-    <!-- 柔和的装饰块 - 降低透明度 -->
-    <div class="absolute -top-[15vh] -right-[25vw] w-[100vw] h-[50vh] bg-[#A7C7E7] opacity-20 rotate-[8deg] -z-0" />
-    <div class="absolute bottom-[-20vh] -left-[20vw] w-[80vw] h-[50vh] bg-[#FFB6A3] opacity-20 rotate-[-6deg] -z-0" />
-
-    <!-- 主内容区 -->
-    <div class="relative z-10 min-h-screen p-6 md:p-12">
-      <!-- 标题 -->
-      <div class="mb-10">
-        <h1 class="text-4xl md:text-5xl font-black tracking-tight text-gray-900 mb-3">设置</h1>
-        <div class="h-1.5 w-20 bg-gray-900" />
-      </div>
-
-      <!-- 设置卡片容器 -->
-      <div class="max-w-4xl mx-auto space-y-6">
-        <!-- 更新频率设置 -->
-        <div class="bg-white border-4 border-gray-900 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] p-8">
-          <h2 class="text-2xl font-black mb-6 tracking-tight text-gray-900 pb-3 border-b-2 border-gray-900">更新频率</h2>
-          <div class="space-y-3">
-            <label v-for="option in updateFrequencyOptions" :key="option.value"
-              class="flex items-center gap-4 p-4 border-2 border-gray-900 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
-              :class="settings.updateFrequency === option.value ? 'bg-[#B8D4E8] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]' : 'bg-white'">
-              <input type="radio" name="updateFrequency" :value="option.value" v-model="settings.updateFrequency"
-                class="w-5 h-5 accent-gray-900 cursor-pointer" />
-              <span class="text-base font-bold text-gray-900">{{ option.label }}</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- 启动后操作设置 -->
-        <div class="bg-white border-4 border-gray-900 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] p-8">
-          <h2 class="text-2xl font-black mb-6 tracking-tight text-gray-900 pb-3 border-b-2 border-gray-900">启动后操作</h2>
-          <div class="space-y-4">
-            <div>
-              <label
-                class="flex items-center gap-4 p-4 border-2 border-gray-900 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
-                :class="settings.startupActions.includes('openBrowser') ? 'bg-[#FFD4C8] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]' : 'bg-white'">
-                <input type="checkbox" value="openBrowser" v-model="settings.startupActions"
-                  class="w-5 h-5 accent-gray-900 cursor-pointer" />
-                <span class="text-base font-bold text-gray-900">启动后打开浏览器</span>
-              </label>
-
-              <!-- 浏览器选择器 -->
-              <div v-if="settings.startupActions.includes('openBrowser')"
-                class="mt-4 ml-10 p-5 bg-gray-50 border-2 border-gray-900">
-                <label class="block text-sm font-bold mb-3 text-gray-900">选择浏览器类型：</label>
-                <select v-model="settings.browserType"
-                  class="w-full p-3 border-3 border-gray-900 font-bold text-base bg-white focus:outline-none focus:ring-2 focus:ring-gray-900 cursor-pointer text-gray-900">
-                  <option value="default">默认浏览器</option>
-                  <option value="chrome">Chrome</option>
-                  <option value="edge">Edge</option>
-                  <option value="360">360浏览器</option>
-                  <option value="firefox">Firefox</option>
-                  <option value="safari">Safari</option>
-                </select>
-              </div>
-            </div>
-
-            <label
-              class="flex items-center gap-4 p-4 border-2 border-gray-900 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
-              :class="settings.startupActions.includes('sendNotification') ? 'bg-[#FFD4C8] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]' : 'bg-white'">
-              <input type="checkbox" value="sendNotification" v-model="settings.startupActions"
-                class="w-5 h-5 accent-gray-900 cursor-pointer" />
-              <span class="text-base font-bold text-gray-900">启动后发送通知</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- 操作按钮 -->
-        <div class="flex flex-col sm:flex-row gap-4 pt-4">
-          <button @click="resetSettings"
-            class="px-6 py-3.5 bg-white border-3 border-gray-900 font-black text-base tracking-tight text-gray-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-y-0 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-            重置应用
-          </button>
-
-          <button @click="saveSettings"
-            class="flex-1 px-6 py-3.5 bg-[#B8D4E8] border-3 border-gray-900 font-black text-base tracking-tight text-gray-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-y-0 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-            保存设置
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { theme } from '@renderer/config/theme.config'
+
+// 主题配置
+const { bg, text, component, layout } = theme
 
 type BrowserType = 'default' | 'chrome' | 'edge' | '360' | 'firefox' | 'safari'
 
@@ -176,7 +94,6 @@ const saveSettings = async (): Promise<void> => {
   }
 }
 
-
 const resetSettings = async (): Promise<void> => {
   const confirmed = window.confirm('确定要重置应用设置并清空已保存的数据吗？此操作不可撤销。')
   if (!confirmed) {
@@ -218,3 +135,86 @@ onMounted(() => {
   loadSettings()
 })
 </script>
+
+<template>
+  <div :class="component.pageContainer">
+    <!-- 柔和的装饰块 - 降低透明度 -->
+    <div :class="`absolute -top-[15vh] -right-[25vw] w-[100vw] h-[50vh] ${bg.accentBlueLight} opacity-20 rotate-[8deg] -z-0`" />
+    <div :class="`absolute bottom-[-20vh] -left-[20vw] w-[80vw] h-[50vh] ${bg.accentOrange} opacity-20 rotate-[-6deg] -z-0`" />
+
+    <!-- 主内容区 -->
+    <div :class="component.pageContent">
+      <!-- 标题 -->
+      <div class="mb-10">
+        <h1 :class="component.pageTitle">设置</h1>
+        <div :class="component.titleUnderline" />
+      </div>
+
+      <!-- 设置卡片容器 -->
+      <div :class="`${layout.maxWidth} space-y-6`">
+        <!-- 更新频率设置 -->
+        <div :class="component.card">
+          <h2 :class="component.cardTitle">更新频率</h2>
+          <div class="border-2 border-gray-900">
+            <label v-for="(option, index) in updateFrequencyOptions" :key="option.value"
+              :class="`flex items-center gap-4 p-4 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${settings.updateFrequency === option.value ? component.selectedTag : bg.white} ${index !== updateFrequencyOptions.length - 1 ? 'border-b-2 border-gray-900' : ''}`">
+              <input type="radio" name="updateFrequency" :value="option.value" v-model="settings.updateFrequency"
+                :class="component.checkbox" />
+              <span :class="`text-base font-bold ${text.primary}`">{{ option.label }}</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 启动后操作设置 -->
+        <div :class="component.card">
+          <h2 :class="component.cardTitle">启动后操作</h2>
+          <div class="border-2 border-gray-900">
+            <div class="border-b-2 border-gray-900">
+              <label
+                :class="`flex items-center gap-4 p-4 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${settings.startupActions.includes('openBrowser') ? component.selectedCheckbox : bg.white}`">
+                <input type="checkbox" value="openBrowser" v-model="settings.startupActions"
+                  :class="component.checkbox" />
+                <span :class="`text-base font-bold ${text.primary}`">启动后打开浏览器</span>
+              </label>
+
+              <!-- 浏览器选择器 -->
+              <div v-if="settings.startupActions.includes('openBrowser')"
+                :class="`p-4 ${bg.gray50} border-t-2 border-gray-900`">
+                <label :class="`block text-sm font-bold mb-3 ${text.primary}`">选择浏览器类型：</label>
+                <select v-model="settings.browserType"
+                  :class="component.input">
+                  <option value="default">默认浏览器</option>
+                  <option value="chrome">Chrome</option>
+                  <option value="edge">Edge</option>
+                  <option value="360">360浏览器</option>
+                  <option value="firefox">Firefox</option>
+                  <option value="safari">Safari</option>
+                </select>
+              </div>
+            </div>
+
+            <label
+              :class="`flex items-center gap-4 p-4 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${settings.startupActions.includes('sendNotification') ? component.selectedCheckbox : bg.white}`">
+              <input type="checkbox" value="sendNotification" v-model="settings.startupActions"
+                :class="component.checkbox" />
+              <span :class="`text-base font-bold ${text.primary}`">启动后发送通知</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="flex flex-col sm:flex-row gap-4 pt-4">
+          <button @click="resetSettings"
+            :class="`px-6 py-3.5 ${component.secondaryButton}`">
+            重置应用
+          </button>
+
+          <button @click="saveSettings"
+            :class="`flex-1 px-6 py-3.5 ${component.primaryButton}`">
+            保存设置
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>

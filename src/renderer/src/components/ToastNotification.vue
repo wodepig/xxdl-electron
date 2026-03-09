@@ -104,6 +104,26 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* CSS 变量定义 - 可配置的主题色 */
+:global(:root) {
+  --toast-success-color: #52c41a;
+  --toast-success-bg: #f6ffed;
+  --toast-success-progress: #b7eb8f;
+  --toast-error-color: #ff4d4f;
+  --toast-error-bg: #fff2f0;
+  --toast-error-progress: #ffccc7;
+  --toast-warning-color: #faad14;
+  --toast-warning-bg: #fffbe6;
+  --toast-warning-progress: #ffe58f;
+  --toast-info-color: #1890ff;
+  --toast-info-bg: #e6f7ff;
+  --toast-info-progress: #91d5ff;
+  --toast-title-color: #262626;
+  --toast-message-color: #595959;
+  --toast-close-color: #8c8c8c;
+  --toast-close-hover-color: #262626;
+}
+
 .toast-container {
   position: fixed;
   top: 20px;
@@ -140,19 +160,19 @@ onUnmounted(() => {
 }
 
 .toast-success::before {
-  background: #52c41a;
+  background: var(--toast-success-color);
 }
 
 .toast-error::before {
-  background: #ff4d4f;
+  background: var(--toast-error-color);
 }
 
 .toast-warning::before {
-  background: #faad14;
+  background: var(--toast-warning-color);
 }
 
 .toast-info::before {
-  background: #1890ff;
+  background: var(--toast-info-color);
 }
 
 .toast-icon {
@@ -168,23 +188,23 @@ onUnmounted(() => {
 }
 
 .toast-success .toast-icon {
-  background: #f6ffed;
-  color: #52c41a;
+  background: var(--toast-success-bg);
+  color: var(--toast-success-color);
 }
 
 .toast-error .toast-icon {
-  background: #fff2f0;
-  color: #ff4d4f;
+  background: var(--toast-error-bg);
+  color: var(--toast-error-color);
 }
 
 .toast-warning .toast-icon {
-  background: #fffbe6;
-  color: #faad14;
+  background: var(--toast-warning-bg);
+  color: var(--toast-warning-color);
 }
 
 .toast-info .toast-icon {
-  background: #e6f7ff;
-  color: #1890ff;
+  background: var(--toast-info-bg);
+  color: var(--toast-info-color);
 }
 
 .toast-content {
@@ -195,13 +215,13 @@ onUnmounted(() => {
 .toast-title {
   font-size: 16px;
   font-weight: 600;
-  color: #262626;
+  color: var(--toast-title-color);
   margin-bottom: 4px;
 }
 
 .toast-message {
   font-size: 14px;
-  color: #595959;
+  color: var(--toast-message-color);
   line-height: 1.5;
 }
 
@@ -216,14 +236,14 @@ onUnmounted(() => {
   background: none;
   border: none;
   font-size: 18px;
-  color: #8c8c8c;
+  color: var(--toast-close-color);
   cursor: pointer;
   transition: color 0.2s;
   flex-shrink: 0;
 }
 
 .toast-close:hover {
-  color: #262626;
+  color: var(--toast-close-hover-color);
 }
 
 .toast-progress {
@@ -236,19 +256,19 @@ onUnmounted(() => {
 }
 
 .toast-success .toast-progress {
-  background: #b7eb8f;
+  background: var(--toast-success-progress);
 }
 
 .toast-error .toast-progress {
-  background: #ffccc7;
+  background: var(--toast-error-progress);
 }
 
 .toast-warning .toast-progress {
-  background: #ffe58f;
+  background: var(--toast-warning-progress);
 }
 
 .toast-info .toast-progress {
-  background: #91d5ff;
+  background: var(--toast-info-progress);
 }
 
 @keyframes progress {

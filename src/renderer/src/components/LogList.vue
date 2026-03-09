@@ -1,5 +1,10 @@
 <script lang="ts" setup>
 import { ref, reactive, nextTick, onMounted } from 'vue'
+import { theme } from '@renderer/config/theme.config'
+
+// 主题配置
+const { bg, text, component, shadow } = theme
+
 type LogType = 'info' | 'debug' | 'warn' | 'error'
 
 interface ParsedLog {
@@ -68,28 +73,28 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="fixed inset-0 bg-[#FAF9F6] overflow-hidden">
+  <div :class="`fixed inset-0 ${bg.primary} overflow-hidden`">
     <!-- 柔和的装饰块 -->
-    <div class="absolute -top-[12vh] -left-[15vw] w-[70vw] h-[40vh] bg-[#B8D4E8] opacity-20 rotate-[-12deg] -z-0" />
-    <div class="absolute bottom-[-18vh] -right-[20vw] w-[75vw] h-[45vh] bg-[#FFB6A3] opacity-20 rotate-[8deg] -z-0" />
+    <div :class="`absolute -top-[12vh] -left-[15vw] w-[70vw] h-[40vh] ${bg.accentBlue} opacity-20 rotate-[-12deg] -z-0`" />
+    <div :class="`absolute bottom-[-18vh] -right-[20vw] w-[75vw] h-[45vh] ${bg.accentOrange} opacity-20 rotate-[8deg] -z-0`" />
 
     <!-- 右上角装饰 -->
-    <div class="absolute top-8 right-8 text-5xl opacity-40">📋</div>
+    <div :class="`absolute top-8 right-8 text-5xl opacity-40 ${text.primary}`">📋</div>
 
     <!-- 主内容区 -->
     <div class="relative z-10 h-full p-6 md:p-12 flex flex-col">
       <!-- 标题 -->
       <div class="mb-6">
-        <h1 class="text-4xl md:text-5xl font-black tracking-tight text-gray-900 mb-3">日志列表</h1>
-        <div class="h-1.5 w-24 bg-gray-900" />
+        <h1 :class="component.pageTitle">日志列表</h1>
+        <div :class="component.titleUnderline" />
       </div>
 
       <!-- 日志面板容器 -->
-      <div class="flex-1 bg-white border-4 border-gray-900 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] p-6 flex flex-col min-h-0">
+      <div :class="`${bg.white} border-4 border-gray-900 ${shadow.card} p-6 flex flex-col min-h-0 flex-1`">
         <div class="mb-4 flex items-center justify-between">
-          <h2 class="text-xl font-black tracking-tight text-gray-900">实时日志</h2>
+          <h2 :class="`text-xl font-black tracking-tight ${text.primary}`">实时日志</h2>
           <div class="flex items-center gap-2">
-            <span class="text-sm font-bold bg-[#B8D4E8] text-gray-900 px-3 py-1 border-2 border-gray-900">
+            <span :class="`text-sm font-bold ${component.infoTag}`">
               共 {{ logs.length }} 条
             </span>
           </div>
@@ -98,20 +103,19 @@ onMounted(() => {
         <!-- 日志内容区域 -->
         <div
           ref="containerRef"
-          class="flex-1 bg-gray-900 text-white font-mono text-sm overflow-y-auto border-4 border-gray-900 p-4 select-text min-h-0"
+          :class="component.logContainer"
           @mouseenter="hover = true"
           @mouseleave="hover = false"
         >
           <div
             v-for="(log, index) in logs"
             :key="index"
-            class="flex gap-3 py-1 px-2 hover:bg-white/10 transition-colors border-b border-white/10"
-            :class="{
-              'text-green-400': log.type === 'info',
-              'text-blue-400': log.type === 'debug',
-              'text-yellow-300': log.type === 'warn',
-              'text-red-400': log.type === 'error'
-            }"
+            :class="[component.logRow, {
+              [text.success]: log.type === 'info',
+              [text.info]: log.type === 'debug',
+              [text.warning]: log.type === 'warn',
+              [text.error]: log.type === 'error'
+            }]"
           >
             <span class="shrink-0 font-bold opacity-60">[{{ log.time }}]</span>
             <span class="shrink-0 font-black uppercase text-xs self-center px-2 py-0.5 border border-current">
@@ -133,7 +137,7 @@ onMounted(() => {
       <!-- 滚到底部按钮 -->
       <button
         @click="scrollToBottom"
-        class="fixed bottom-8 right-8 w-14 h-14 bg-[#FFB6A3] text-gray-900 border-4 border-gray-900 font-black text-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-y-0 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center"
+        :class="`fixed bottom-8 right-8 w-14 h-14 ${bg.accentOrange} ${text.primary} border-4 border-gray-900 font-black text-2xl ${shadow.button} ${shadow.buttonHover} hover:-translate-y-1 transition-all ${shadow.buttonActive} active:translate-y-0 flex items-center justify-center`"
         title="滚到底部"
       >
         ⬇
