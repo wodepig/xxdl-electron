@@ -107,7 +107,6 @@ export async function getFileUpgrade(
       accessSecret: sk,
     });
     const client = new Client(config);
-
     const request = new FileUpgradeRequest({
       fileKey: fk,
       versionCode: versionCode,
@@ -115,7 +114,6 @@ export async function getFileUpgrade(
       devModelKey: '',
       devKey: ''
     });
-    console.log(request);
     
     const response = await client.FileUpgrade(request);
 
