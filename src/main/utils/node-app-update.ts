@@ -66,19 +66,9 @@ export async function getElectronUpgrade(
       arch: "x64"
     });
 
-    console.log('ak', ak);
-    console.log('sk', sk);
-    console.log('electronKey', electronKey);
-    console.log('versionCode', versionCode);
-    console.log('request', request);
 
     const response = await client.ElectronVersion(request);
 
-    console.log('\nelectron升级信息响应:');
-    console.log(`code: ${response.code}`);
-    console.log(`msg: ${response.msg}`);
-    console.log('data:');
-    console.log(response);
 
     return response as UpgradeResponse;
   } catch (error) {
@@ -117,16 +107,16 @@ export async function getFileUpgrade(
     
     const response = await client.FileUpgrade(request);
 
-    console.log('\n文件升级信息响应:');
-    console.log(`code: ${response.code}`);
-    console.log(`msg: ${response.msg}`);
-    console.log('data:');
-    console.log(`  fileKey: ${response.data.fileKey}`);
-    console.log(`  versionName: ${response.data.versionName}`);
-    console.log(`  versionCode: ${response.data.versionCode}`);
-    console.log(`  urlPath: ${response.data.urlPath}`);
-    console.log(`  upgradeType: ${response.data.upgradeType}`);
-    console.log(`  promptUpgradeContent: ${response.data.promptUpgradeContent}`);
+    // console.log('\n文件升级信息响应:');
+    // console.log(`code: ${response.code}`);
+    // console.log(`msg: ${response.msg}`);
+    // console.log('data:');
+    // console.log(`  fileKey: ${response.data.fileKey}`);
+    // console.log(`  versionName: ${response.data.versionName}`);
+    // console.log(`  versionCode: ${response.data.versionCode}`);
+    // console.log(`  urlPath: ${response.data.urlPath}`);
+    // console.log(`  upgradeType: ${response.data.upgradeType}`);
+    // console.log(`  promptUpgradeContent: ${response.data.promptUpgradeContent}`);
 
     return response as UpgradeResponse;
   } catch (error) {
@@ -266,7 +256,7 @@ export const checkUpdate = async (distVersion: number): Promise<boolean> => {
     import.meta.env.VITE_UL_CONF_FILEKEY!,
     distVersion
   )
-  console.log(JSON.stringify(res))
+  // console.log(JSON.stringify(res))
 
   // 更新检查完成后，更新最后检查时间（用于 daily 模式）
   const updateFrequency = getConfValue('updateFrequency', 'onStart', 'settings') as UpdateFrequency
