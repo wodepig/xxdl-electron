@@ -153,7 +153,7 @@ onMounted(() => {
             <img :src="qrCodeUrl" alt="二维码" class="w-32 h-32 object-contain" />
           </div>
           <p :class="`text-xs font-bold ${bg.gray900} ${text.inverse} px-3 py-1.5 border-2 border-gray-900`">
-            {{ authorInfo.qrLabel || '扫码联系' }}
+            {{ authorInfo.qrLabel || '点击图片放大' }}
           </p>
         </div>
       </div>

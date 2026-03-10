@@ -16,7 +16,7 @@ const getAppInfos = () =>{
     website: import.meta.env.VITE_APP_HOME || '作者网站',
     wx: import.meta.env.VITE_AUTHOR_WX || '作者微信',
     github: import.meta.env.VITE_APP_AUTHOR_GITHUB || '作者GitHub',
-    qrLabel: import.meta.env.VITE_AUTHOR_QRLABEL || '扫码联系',
+    qrLabel: import.meta.env.VITE_AUTHOR_QRLABEL || '点击放大',
     qrCode: import.meta.env.VITE_AUTHOR_WX_IMG || 'image/wx_qr.png'
   }
   let links = []

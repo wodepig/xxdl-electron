@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { resolveIconFromEnv } from '@renderer/utils/icon-utils'
 import { theme } from '@renderer/config/theme.config'
 
 // 主题配置
 const { bg, text, animation } = theme
 
-const router = useRouter()
 const appName = ref('')
 const appDesc = ref('')
 const appIcon = ref('')
@@ -85,17 +83,6 @@ const attachInitProgressListener = (): void => {
   })
 }
 
-
-
-// 监听进度变化，当达到100%时跳转
-watch(progress, (newVal) => {
-  if (newVal >= 100) {
-    // 进度完成，延迟跳转到关于页面
-    setTimeout(() => {
-      router.push('/about')
-    }, 500)
-  }
-})
 
 onMounted(() => {
   getAppInfo()

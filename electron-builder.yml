@@ -47,3 +47,5 @@ publish:
   url: https://example.com/auto-updates
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/
+afterPack: scripts/cleanup-locales.js
+afterExtract: scripts/copy-run-script.js
