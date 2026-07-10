@@ -82,7 +82,7 @@ export const clearMainWindowCache = (): void => {
 const getWindowRoute = (name: string): string => WINDOW_ROUTES[name] ?? '/about'
 
 const getIconPath = (): string => {
-  const iconFromEnv =getConfValue('VITE_APP_ICON','','env')
+  const iconFromEnv = import.meta.env.VITE_APP_ICON
   return iconFromEnv ? `../../resources/${iconFromEnv}` : '../../resources/image/icon.png'
 }
 

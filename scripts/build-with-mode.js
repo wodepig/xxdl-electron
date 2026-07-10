@@ -82,7 +82,7 @@ const start = ()=>{
     builderConfig.win.executableName = process.env.VITE_APP_EXE_NAME
   }
   writeFileSync(builderPath, yaml.dump(builderConfig), 'utf8')
-  build()
+  // build()
   // 还原
   writeFileSync(packageJsonPath, JSON.stringify(packageJsonOld, null, 2), 'utf8')
   writeFileSync(builderPath, yaml.dump(builderConfigOld), 'utf8')

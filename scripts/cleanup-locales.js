@@ -72,46 +72,56 @@ function getReferencedImages() {
 
   const icon = env.VITE_APP_ICON || ''
   const wxImg = env.VITE_AUTHOR_WX_IMG || ''
-
+  // icon.png 在 electron-builder.yml 中被引用为应用图标
+  names.add('icon.png')
   const names = new Set()
   if (icon) names.add(basename(icon))
   if (wxImg) names.add(basename(wxImg))
-  // icon.png 在 electron-builder.yml 中被引用为应用图标
-  names.add('icon.png')
+
 
   return [...names]
 }
 
 async function cleanupResourceImages(appOutDir) {
-  const resourcesImageDir = join(appOutDir, 'resources', 'image')
-
-  if (!existsSync(resourcesImageDir)) {
-    console.log('[cleanup-locales] resources/image 目录不存在，跳过图片清理')
-    return
-  }
+  // asarUnpack 的资源会解包到 app.asar.unpacked/ 下
+  const candidateDirs = [
+    join(appOutDir, 'resources', 'app.asar.unpacked', 'resources', 'image'),
+    join(appOutDir, 'resources', 'image')
+  ]
 
   const referenced = getReferencedImages()
-  console.log(`[cleanup-locales] 保留的资源图片: ${referenced.join(', ') || '(无)'}`)
+  let cleaned = false
+  let totalDeleted = 0
 
-  const files = await fs.readdir(resourcesImageDir)
-  let deletedCount = 0
+  for (const resourcesImageDir of candidateDirs) {
+    if (!existsSync(resourcesImageDir)) continue
 
-  await Promise.all(
-    files.map(async (fileName) => {
-      const lowerName = fileName.toLowerCase()
-      const isImage = /\.(png|jpg|jpeg|gif|svg|ico|webp)$/i.test(lowerName)
-      if (!isImage) return
+    console.log(`[cleanup-locales] 保留的资源图片: ${referenced.join(', ') || '(无)'}`)
+    console.log(`[cleanup-locales] 清理目录: ${resourcesImageDir}`)
 
-      if (referenced.includes(fileName) || referenced.includes(lowerName)) return
+    const files = await fs.readdir(resourcesImageDir)
+    let deletedCount = 0
 
-      const fullPath = join(resourcesImageDir, fileName)
-      await fs.rm(fullPath, { recursive: true, force: true })
-      deletedCount++
-    })
-  )
+    await Promise.all(
+      files.map(async (fileName) => {
+        const lowerName = fileName.toLowerCase()
+        if (!/\.(png|jpg|jpeg|gif|svg|ico|webp)$/i.test(lowerName)) return
+        if (referenced.includes(fileName) || referenced.includes(lowerName)) return
 
-  if (deletedCount > 0) {
-    console.log(`[cleanup-locales] 已清理 ${deletedCount} 个未使用的资源图片`)
+        await fs.rm(join(resourcesImageDir, fileName), { recursive: true, force: true })
+        deletedCount++
+      })
+    )
+
+    if (deletedCount > 0) {
+      console.log(`[cleanup-locales] 已清理 ${deletedCount} 个未使用的资源图片`)
+    }
+    totalDeleted += deletedCount
+    cleaned = true
+  }
+
+  if (!cleaned) {
+    console.log('[cleanup-locales] 未找到 resources/image 目录，跳过图片清理')
   }
 }
 

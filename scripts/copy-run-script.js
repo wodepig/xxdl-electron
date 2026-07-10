@@ -19,7 +19,7 @@ const createShortcut = async (appOutDir, exeName) => {
   const shortcutPath = join(appOutDir, `${exeName}.lnk`)
   const targetPath = join(appOutDir, `${exeName}.exe`)
 
-  // 写入临时 ps1 文件，避免内联命令时中文路径编码问题
+  // 写入临时 ps1 文件，添加 UTF-8 BOM 防止 PowerShell 以 GBK 解析乱码
   const psScript = `
     $WshShell = New-Object -comObject WScript.Shell
     $Shortcut = $WshShell.CreateShortcut('${shortcutPath}')
@@ -28,7 +28,7 @@ const createShortcut = async (appOutDir, exeName) => {
     $Shortcut.Save()
   `
   const tmpFile = join(tmpdir(), `create-shortcut-${Date.now()}.ps1`)
-  await fs.writeFile(tmpFile, psScript, 'utf8')
+  await fs.writeFile(tmpFile, '\uFEFF' + psScript, 'utf8')
 
   try {
     await execAsync(`powershell -ExecutionPolicy Bypass -File "${tmpFile}"`)
