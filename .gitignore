@@ -13,6 +13,7 @@ dist_server
 .idea
 extract_dir_name
 # 忽略electron-conf创建的配置文件
+conf
 window.json
 settings.json
 common.json

@@ -1,10 +1,10 @@
 import { Conf } from 'electron-conf/main'
 import { getAppDir } from './path-utils'
-import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { app, dialog } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import log from 'electron-log/main'
+import { showWarningNotification } from './window'
 
 // ==================== 配置命名空间 ====================
 
@@ -18,7 +18,7 @@ export type ConfigNamespace = 'common' | 'settings' | 'window' | string
 /**
  * 必需的环境变量列表
  */
-const REQUIRED_ENV_VARS = ['UL_CONF_AK', 'UL_CONF_SK', 'UL_CONF_FILEKEY', 'UL_CONF_URL']
+const REQUIRED_ENV_VARS = ['VITE_UPD_SLUG', 'VITE_UPD_URL']
 
 /**
  * 获取 .env 文件路径
@@ -61,7 +61,9 @@ const checkRequiredEnvVars = (): { valid: boolean; missing: string[] } => {
   const missing: string[] = []
 
   for (const varName of REQUIRED_ENV_VARS) {
-    const value = process.env[varName]
+    const value = getConfValue(varName, '', 'env') as string
+    console.log(varName, value);
+
     if (!value || value.trim() === '') {
       missing.push(varName)
     }
@@ -77,26 +79,28 @@ const checkRequiredEnvVars = (): { valid: boolean; missing: string[] } => {
  * 加载 .env 环境变量文件
  */
 export const loadEnvFile = (): void => {
-  const envPath = getEnvPath()
-  if (!existsSync(envPath)) {
-    log.error('错误:.env 文件不存在:' + envPath)
-    return
-  }
-
   try {
-    const content = readFileSync(envPath, 'utf-8')
-    parseEnvFile(content)
+    clearConf('env')
+    const content = import.meta.env as any
+
+    Object.keys(content).forEach(key => {
+      setConfValue(key, content[key], 'env')
+    })
+    // 检查必需的环境变量
+    const envCheck = checkRequiredEnvVars()
+    if (!envCheck.valid) {
+      const message = `缺少必要的环境变量配置：\n${envCheck.missing.map((v) => `- ${v}`).join('\n')}\n请联系管理员配置这些变量。`
+      showWarningNotification('配置错误', message)
+      return
+    }
+
+
     log.info('环境变量加载成功')
   } catch (error: any) {
-    log.error('读取 .env 文件失败:' + error.message)
+    log.error('读取环境变量失败:' + error.message)
   }
 
-  // 检查必需的环境变量
-  const envCheck = checkRequiredEnvVars()
-  if (!envCheck.valid) {
-    const message = `缺少必要的环境变量配置：\n\n${envCheck.missing.map((v) => `- ${v}`).join('\n')}\n\n请在项目根目录的 .env 文件中配置这些变量。`
-    dialog.showErrorBox('配置错误', message)
-  }
+
 }
 
 // ==================== 应用配置 (conf.json 文件) ====================
@@ -128,7 +132,7 @@ export const getConfValue = <T = any>(
   nameSpace?: ConfigNamespace
 ): T => {
   const ns = nameSpace || 'common'
-  const conf = new Conf({ name: ns, dir: getAppDir() })
+  const conf = new Conf({ name: ns, dir: join(getAppDir(), 'conf') })
   const v = conf.get(key)
   if (!v) {
     return defaultValue !== undefined ? defaultValue : ('' as T)
@@ -148,7 +152,7 @@ export const setConfValue = <T = any>(
   nameSpace?: ConfigNamespace
 ): void => {
   const ns = nameSpace || 'common'
-  const conf = new Conf({ name: ns, dir: getAppDir() })
+  const conf = new Conf({ name: ns, dir: join(getAppDir(), 'conf') })
   conf.set(key, value)
 }
 
@@ -157,7 +161,7 @@ export const setConfValue = <T = any>(
  * @param nameSpace 命名空间
  */
 export const clearConf = (nameSpace?: ConfigNamespace): void => {
-  const conf = new Conf({ name: nameSpace, dir: getAppDir() })
+  const conf = new Conf({ name: nameSpace, dir: join(getAppDir(), 'conf') })
   conf.clear()
 }
 
@@ -168,7 +172,7 @@ export const clearConf = (nameSpace?: ConfigNamespace): void => {
  */
 export const deleteConfValue = (key: string, nameSpace?: ConfigNamespace): void => {
   const ns = nameSpace || 'common'
-  const conf = new Conf({ name: ns, dir: getAppDir() })
+  const conf = new Conf({ name: ns, dir: join(getAppDir(), 'conf') })
   conf.delete(key)
 }
 
@@ -180,6 +184,6 @@ export const deleteConfValue = (key: string, nameSpace?: ConfigNamespace): void 
  */
 export const hasConfValue = (key: string, nameSpace?: ConfigNamespace): boolean => {
   const ns = nameSpace || 'common'
-  const conf = new Conf({ name: ns, dir: getAppDir() })
+  const conf = new Conf({ name: ns, dir: join(getAppDir(), 'conf') })
   return conf.has(key)
 }

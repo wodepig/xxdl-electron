@@ -236,58 +236,87 @@ export const shouldCheckUpdate = (): boolean => {
 }
 
 /**
+ * 比较版本号，判断是否需要更新
+ * @param old 旧版本号（格式：x.y.z）
+ * @param newV 新版本号（格式：x.y.z）
+ * @returns true 表示需要更新，false 表示不需要更新或版本号格式错误
+ */
+const compareVersion = async (old: string, newV: string): Promise<boolean> => {
+  const versionRegex = /^\d+\.\d+\.\d+$/
+
+  if (!versionRegex.test(old) || !versionRegex.test(newV)) {
+    log.warn(`[compareVersion] 版本号格式错误: old="${old}", new="${newV}"`)
+    return false
+  }
+
+  const oldParts = old.split('.').map(Number)
+  const newParts = newV.split('.').map(Number)
+
+  for (let i = 0; i < 3; i++) {
+    if (newParts[i] > oldParts[i]) return true
+    if (newParts[i] < oldParts[i]) return false
+  }
+
+  return false // 版本相同，不需要更新
+}
+
+/**
  * 检查程序更新
  * @param distVersion 当前版本号
  * @returns 是否需要清理dist目录
  */
-export const checkUpdate = async (distVersion: number): Promise<boolean> => {
+export const checkUpdate = async (distVersion: string): Promise<boolean> => {
   // 根据更新频率设置判断是否应该检查更新
   if (!shouldCheckUpdate()) {
     return false
   }
 
   const appDir = getConfValue('appDir', '')
+  
   const distZipPath = join(appDir, 'dist.zip')
   log.info('检查程序更新...')
+  const slug = getConfValue('VITE_UPD_SLUG', '')
+  const resp = await fetch('https://upd.devitem.top/api/public/files/'+slug+'/check-update?channel=stable&env=prod').then(res => res.json)
+  console.log(resp);
+  
+  // // 使用当前版本号检查更新
+  // const res = await getFileUpgrade(
+  //   import.meta.env.VITE_UL_CONF_AK!,
+  //   import.meta.env.VITE_UL_CONF_SK!,
+  //   import.meta.env.VITE_UL_CONF_FILEKEY!,
+  //   distVersion
+  // )
+  // // console.log(JSON.stringify(res))
 
-  // 使用当前版本号检查更新
-  const res = await getFileUpgrade(
-    import.meta.env.VITE_UL_CONF_AK!,
-    import.meta.env.VITE_UL_CONF_SK!,
-    import.meta.env.VITE_UL_CONF_FILEKEY!,
-    distVersion
-  )
-  // console.log(JSON.stringify(res))
+  // // 更新检查完成后，更新最后检查时间（用于 daily 模式）
+  // const updateFrequency = getConfValue('updateFrequency', 'onStart', 'settings') as UpdateFrequency
+  // if (updateFrequency === 'daily') {
+  //   setConfValue('lastUpdateCheckTime', Date.now(), 'settings')
+  // }
 
-  // 更新检查完成后，更新最后检查时间（用于 daily 模式）
-  const updateFrequency = getConfValue('updateFrequency', 'onStart', 'settings') as UpdateFrequency
-  if (updateFrequency === 'daily') {
-    setConfValue('lastUpdateCheckTime', Date.now(), 'settings')
-  }
-
-  if (res && res.code === 200) {
-    // 检查是否有新版本
-    const newVersionCode = res.data.versionCode
-    if (newVersionCode > distVersion) {
-      showInfoNotification('发现新版本',`版本号:${distVersion} -> ${newVersionCode},更新内容: ${res.data.promptUpgradeContent}`)
-      log.info(
-        `发现新版本:${distVersion} -> ${newVersionCode},更新内容: ${res.data.promptUpgradeContent}`
-      )
-      const distUrl = res.data.urlPath
-      await downloadFile(distUrl, distZipPath)
-      setConfValue('distVersion', newVersionCode)
-      return true
-    } else {
-      showInfoNotification('当前最新版本', `版本号: ${distVersion}`)
-      log.info(`当前已是最新版本: ${distVersion}`)
-    }
-  } else if (res && res.code === 0) {
-    showInfoNotification('没有新版本','当前已是最新版本')
-    log.info('没有新版本')
-  } else {
-    showWarningNotification('检查更新失败','使用当前版本')
-    log.info('检查更新失败，使用当前版本')
-  }
+  // if (res && res.code === 200) {
+  //   // 检查是否有新版本
+  //   const newVersionCode = res.data.versionCode
+  //   if (newVersionCode > distVersion) {
+  //     showInfoNotification('发现新版本',`版本号:${distVersion} -> ${newVersionCode},更新内容: ${res.data.promptUpgradeContent}`)
+  //     log.info(
+  //       `发现新版本:${distVersion} -> ${newVersionCode},更新内容: ${res.data.promptUpgradeContent}`
+  //     )
+  //     const distUrl = res.data.urlPath
+  //     await downloadFile(distUrl, distZipPath)
+  //     setConfValue('distVersion', newVersionCode)
+  //     return true
+  //   } else {
+  //     showInfoNotification('当前最新版本', `版本号: ${distVersion}`)
+  //     log.info(`当前已是最新版本: ${distVersion}`)
+  //   }
+  // } else if (res && res.code === 0) {
+  //   showInfoNotification('没有新版本','当前已是最新版本')
+  //   log.info('没有新版本')
+  // } else {
+  //   showWarningNotification('检查更新失败','使用当前版本')
+  //   log.info('检查更新失败，使用当前版本')
+  // }
   return false
 }
 
@@ -345,7 +374,7 @@ const handleDistZip = async (): Promise<void> => {
   const serverPath = join(distDir, 'server', 'index.mjs')
 
   // 从配置中读取 distVersion，如果不存在则设置为 1
-  let distVersion = getConfValue('distVersion', 1)
+  let distVersion = getConfValue('distVersion', '0.0.1')
   log.debug(`[handleDistZip] 当前版本号: ${distVersion}`)
 
   try {

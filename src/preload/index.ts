@@ -1,15 +1,17 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { getConfValue } from '../main/utils'
 
 // import { Conf } from 'electron-conf'
 // import { getAppDir } from '../main/utils'
-// import {getConfValue} from '../main/conf'
+
 // 添加调试日志
 
 /**
  * 获取应用和作者信息
  */
 const getAppInfos = () =>{
+
   const auth = {
     name: import.meta.env.VITE_AUTHOR_NAME || '作者',
     email: import.meta.env.VITE_AUTHOR_EMAIL || '作者邮箱',

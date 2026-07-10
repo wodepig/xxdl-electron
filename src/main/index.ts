@@ -6,7 +6,7 @@ import { LogFileWatcher } from './utils/index'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { startInitialize,deleteAppData, cleanupServerProcess, addLog2Vue, sendLatestLogToMainWindow, sleep, getAppDir,isPortInUse, sendInitProgress
   ,setDownloadProgressCallback,sendDownloadProgress , type NotificationType} from './utils/index'
-import { getConfValue, setConfValue, clearConf, getEnvConf } from './utils/config'
+import { getConfValue, setConfValue, clearConf, getEnvConf,loadEnvFile } from './utils/config'
 import { createMainWindow, ensureMenuCreated } from './utils/index'
 
 
@@ -172,8 +172,17 @@ try{
     }, 100)
     // 检查electron更新(不可用)
     // await checkElectronUpdrate()
+    // 保存环境变量到配置中
+    await loadEnvFile()
     // 开始初始化
-    await runInitialization()
+    // await runInitialization()
+      const slug = getConfValue('VITE_UPD_SLUG','','env')
+      const updUrl = getConfValue('VITE_UPD_URL','','env')
+      const url = `${updUrl}/api/public/files/${slug}/check-update?channel=stable&env=prod`
+      console.log('检查更新的url:'+url);
+      
+  const resp = await fetch(url).then(res => res.json)
+  console.log(resp);
   })
 
   // Set app user model id for windows
