@@ -49,7 +49,6 @@ export {
   // 更新检查
   shouldCheckUpdate,
   checkUpdate,
-  checkUpdateDetail,
   // UpgradeLink API
   getElectronUpgrade,
   getFileUpgrade,
@@ -93,6 +92,5 @@ export { LogFileWatcher } from './log-watcher'
 
 // ==================== Electron 自动更新 ====================
 export {
-  checkElectronUpdrate,
-  checkForUpdates
+  checkElectronUpdrate
 } from './electron-update'

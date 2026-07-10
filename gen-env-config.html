@@ -133,35 +133,29 @@
     <!-- 中间：配置区（弹性宽度，主要内容区） -->
     <div class="w-full lg:flex-1">
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- UpgradeLink配置区 -->
+        <!-- 更新配置区 -->
         <section class="config-card">
           <h2 class="section-title">
-            <i class="fa fa-link text-primary"></i> UpgradeLink配置
+            <i class="fa fa-cloud-download text-primary"></i> 更新配置
           </h2>
           <div class="space-y-4">
             <div>
-              <label for="VITE_UL_CONF_AK" class="form-label-required">VITE_UL_CONF_AK</label>
-              <p class="form-hint">UpgradeLink平台中的Ak</p>
-              <input type="text" id="VITE_UL_CONF_AK" class="form-input">
-              <p class="error-text" id="VITE_UL_CONF_AK_error">请填写UpgradeLink平台的AK</p>
+              <label for="VITE_UPD_SLUG" class="form-label-required">VITE_UPD_SLUG</label>
+              <p class="form-hint">更新服务的 Slug</p>
+              <input type="text" id="VITE_UPD_SLUG" class="form-input">
+              <p class="error-text" id="VITE_UPD_SLUG_error">请填写更新服务的 Slug</p>
             </div>
             <div>
-              <label for="VITE_UL_CONF_SK" class="form-label-required">VITE_UL_CONF_SK</label>
-              <p class="form-hint">UpgradeLink平台中的SK</p>
-              <input type="text" id="VITE_UL_CONF_SK" class="form-input">
-              <p class="error-text" id="VITE_UL_CONF_SK_error">请填写UpgradeLink平台的SK</p>
+              <label for="VITE_UPD_URL" class="form-label-required">VITE_UPD_URL</label>
+              <p class="form-hint">更新服务的 URL 地址</p>
+              <input type="text" id="VITE_UPD_URL" class="form-input">
+              <p class="error-text" id="VITE_UPD_URL_error">请填写更新服务的 URL 地址</p>
             </div>
             <div>
-              <label for="VITE_UL_CONF_FILEKEY" class="form-label-required">VITE_UL_CONF_FILEKEY</label>
-              <p class="form-hint">UpgradeLink平台中的FileKey</p>
-              <input type="text" id="VITE_UL_CONF_FILEKEY" class="form-input">
-              <p class="error-text" id="VITE_UL_CONF_FILEKEY_error">请填写UpgradeLink平台的FileKey</p>
-            </div>
-            <div>
-              <label for="VITE_UL_CONF_URL" class="form-label-required">VITE_UL_CONF_URL</label>
-              <p class="form-hint">程序启动后打开的地址，默认http://localhost:3000</p>
-              <input type="text" id="VITE_UL_CONF_URL" class="form-input" value="http://localhost:3000">
-              <p class="error-text" id="VITE_UL_CONF_URL_error">请填写程序启动后打开的地址</p>
+              <label for="VITE_UPD_AK" class="form-label-required">VITE_UPD_AK</label>
+              <p class="form-hint">更新服务的 AccessKey</p>
+              <input type="text" id="VITE_UPD_AK" class="form-input">
+              <p class="error-text" id="VITE_UPD_AK_error">请填写更新服务的 AccessKey</p>
             </div>
           </div>
         </section>
@@ -326,7 +320,7 @@
 <script>
   // 配置项列表（包含隐藏的VITE_APP_LINKS）
   const configItems = [
-    'VITE_UL_CONF_AK', 'VITE_UL_CONF_SK', 'VITE_UL_CONF_FILEKEY', 'VITE_UL_CONF_URL',
+    'VITE_UPD_SLUG', 'VITE_UPD_URL', 'VITE_UPD_AK',
     'VITE_APP_NAME', 'VITE_APP_EXE_NAME', 'VITE_APP_DESC', 'VITE_APP_ID', 'VITE_APP_ICON',
     'VITE_APP_HOME', 'VITE_APP_LINKS', 'VITE_AUTHOR_NAME', 'VITE_AUTHOR_WX',
     'VITE_AUTHOR_WX_IMG', 'VITE_AUTHOR_EMAIL', 'VITE_ADMIN_PASSWORD'
@@ -335,7 +329,6 @@
   // 预设配置
   const presets = {
     xiyin: {
-      VITE_UL_CONF_URL: 'http://localhost:3000',
       VITE_APP_NAME: '希音工具',
       VITE_APP_EXE_NAME: '希音工具',
       VITE_APP_DESC: '希音自动化工具',
@@ -351,7 +344,6 @@
       ]
     },
     rpa: {
-      VITE_UL_CONF_URL: 'http://localhost:3000',
       VITE_APP_NAME: 'RPA工具',
       VITE_APP_EXE_NAME: 'RPA工具',
       VITE_APP_DESC: 'RPA自动化工具',
@@ -517,10 +509,9 @@
 
   // 所有配置项设为必填（包含普通项和邮箱格式项）
   const requiredFields = [
-    { id: 'VITE_UL_CONF_AK', rule: 'required', message: '请填写UpgradeLink平台的AK' },
-    { id: 'VITE_UL_CONF_SK', rule: 'required', message: '请填写UpgradeLink平台的SK' },
-    { id: 'VITE_UL_CONF_FILEKEY', rule: 'required', message: '请填写UpgradeLink平台的FileKey' },
-    { id: 'VITE_UL_CONF_URL', rule: 'required', message: '请填写程序启动后打开的地址' },
+    { id: 'VITE_UPD_SLUG', rule: 'required', message: '请填写更新服务的 Slug' },
+    { id: 'VITE_UPD_URL', rule: 'required', message: '请填写更新服务的 URL 地址' },
+    { id: 'VITE_UPD_AK', rule: 'required', message: '请填写更新服务的 AccessKey' },
     { id: 'VITE_APP_NAME', rule: 'required', message: '请填写应用名称' },
     { id: 'VITE_APP_EXE_NAME', rule: 'required', message: '请填写单独指定的exe名称' },
     { id: 'VITE_APP_DESC', rule: 'required', message: '请填写应用描述' },
@@ -836,8 +827,7 @@
         if (!input) return;
 
         // 保留默认值
-        if (key === 'VITE_UL_CONF_URL') input.value = 'http://localhost:3000';
-        else if (key === 'VITE_APP_ICON') input.value = 'image/icon.png';
+        if (key === 'VITE_APP_ICON') input.value = 'image/icon.png';
         else input.value = '';
 
         // 清除错误样式

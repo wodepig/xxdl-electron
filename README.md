@@ -10,7 +10,7 @@ pnpm install
 3. 确保dist_server目录存在
 启动时程序检查dist_server是否存在, 如果不存在则解压dist.zip到dist_server目录下.
 如果存在就启动dist_server目录下的index.mjs文件.
-如果dist.zip不存在, 会通过https://api.upgrade.toolsetlink.com/v1/file/download?fileKey=${import.meta.env.VITE_UL_CONF_FILEKEY!}下载默认的dist.zip
+如果dist.zip不存在, 会根据启动时的检查更新逻辑下载最新的dist.zip
 > 可以通过pnpm create nuxt 初始化一个项目, pnpm build 打包项目后, 压缩成dist.zip放到本项目根目录下
 4. 启动
 pnpm dev
@@ -35,10 +35,9 @@ Nuxt或Next全栈项目开发后, 打包并构建. 然后把构建物上传到Up
 ## 配置
 根据.env.example设置应用的信息, 配置如下:
 ```
-VITE_UL_CONF_AK=UpgradeLink的AK
-VITE_UL_CONF_SK=UpgradeLinkSK
-VITE_UL_CONF_FILEKEY=UpgradeLink的FileKey(文件升级)
-VITE_UL_CONF_URL=启动项目后要打开的地址(默认http://localhost:3000)
+VITE_UPD_SLUG=更新服务的Slug
+VITE_UPD_URL=更新服务的URL地址
+VITE_UPD_AK=更新服务的AccessKey
 VITE_APP_NAME=应用名
 VITE_APP_DESC=应用描述
 VITE_APP_ID=com.electron.app

@@ -274,87 +274,44 @@ export const checkUpdate = async (distVersion: string): Promise<boolean> => {
   const appDir = getConfValue('appDir', '')
   
   const distZipPath = join(appDir, 'dist.zip')
-  log.info('检查程序更新...')
-  const slug = getConfValue('VITE_UPD_SLUG', '')
-  const resp = await fetch('https://upd.devitem.top/api/public/files/'+slug+'/check-update?channel=stable&env=prod').then(res => res.json)
-  console.log(resp);
-  
-  // // 使用当前版本号检查更新
-  // const res = await getFileUpgrade(
-  //   import.meta.env.VITE_UL_CONF_AK!,
-  //   import.meta.env.VITE_UL_CONF_SK!,
-  //   import.meta.env.VITE_UL_CONF_FILEKEY!,
-  //   distVersion
-  // )
-  // // console.log(JSON.stringify(res))
 
-  // // 更新检查完成后，更新最后检查时间（用于 daily 模式）
-  // const updateFrequency = getConfValue('updateFrequency', 'onStart', 'settings') as UpdateFrequency
-  // if (updateFrequency === 'daily') {
-  //   setConfValue('lastUpdateCheckTime', Date.now(), 'settings')
-  // }
-
-  // if (res && res.code === 200) {
-  //   // 检查是否有新版本
-  //   const newVersionCode = res.data.versionCode
-  //   if (newVersionCode > distVersion) {
-  //     showInfoNotification('发现新版本',`版本号:${distVersion} -> ${newVersionCode},更新内容: ${res.data.promptUpgradeContent}`)
-  //     log.info(
-  //       `发现新版本:${distVersion} -> ${newVersionCode},更新内容: ${res.data.promptUpgradeContent}`
-  //     )
-  //     const distUrl = res.data.urlPath
-  //     await downloadFile(distUrl, distZipPath)
-  //     setConfValue('distVersion', newVersionCode)
-  //     return true
-  //   } else {
-  //     showInfoNotification('当前最新版本', `版本号: ${distVersion}`)
-  //     log.info(`当前已是最新版本: ${distVersion}`)
-  //   }
-  // } else if (res && res.code === 0) {
-  //   showInfoNotification('没有新版本','当前已是最新版本')
-  //   log.info('没有新版本')
-  // } else {
-  //   showWarningNotification('检查更新失败','使用当前版本')
-  //   log.info('检查更新失败，使用当前版本')
-  // }
-  return false
-}
-
-/**
- * 获取更新检查结果的详细信息
- * @param distVersion 当前版本号
- * @returns 更新检查结果
- */
-export const checkUpdateDetail = async (distVersion: number): Promise<UpdateCheckResult> => {
-  if (!shouldCheckUpdate()) {
-    return { hasUpdate: false }
+      const slug = getConfValue('VITE_UPD_SLUG','','env')
+      const updUrl = getConfValue('VITE_UPD_URL','','env')
+      const url = `${updUrl}/api/public/files/${slug}/check-update?channel=stable&env=prod`
+        log.info('检查'+slug+'程序更新...:' + url)
+      
+  const resp = await fetch(url)
+  const res = await resp.json()
+  if(!resp.ok){
+     log.warn('检查更新失败, 继续使用旧文件')
+     showWarningNotification('更新失败',res.statusMessage || '检查更新失败')
+    throw new Error(res.statusMessage || '检查更新失败')
+    
   }
-
-  const res = await getFileUpgrade(
-    import.meta.env.VITE_UL_CONF_AK!,
-    import.meta.env.VITE_UL_CONF_SK!,
-    import.meta.env.VITE_UL_CONF_FILEKEY!,
-    distVersion
-  )
-
-  // 更新最后检查时间
-  const updateFrequency = getConfValue('updateFrequency', 'onStart', 'settings') as UpdateFrequency
-  if (updateFrequency === 'daily') {
-    setConfValue('lastUpdateCheckTime', Date.now(), 'settings')
-  }
-
-  if (res && res.code === 200) {
-    const newVersionCode = res.data.versionCode
-    if (newVersionCode > distVersion) {
-      return {
-        hasUpdate: true,
-        newVersionCode,
-        url: res.data.urlPath
+      
+      if(res.error){
+        showWarningNotification('更新失败',res.statusMessage)
+        throw new Error(res.statusMessage)
       }
-    }
-  }
-
-  return { hasUpdate: false }
+      if(!res.updateAvailable){
+ showWarningNotification('更新失败',res.reason || '无可用更新文件')
+ throw new Error(res.reason || '无可用更新文件')
+      }
+      // 对比版本号，判断是否需要更新
+      const newVersion = res.latest.version
+      if(await compareVersion(distVersion, newVersion)){
+        showInfoNotification('发现新版本',`版本号:${distVersion} -> ${newVersion},更新内容: ${res.latest.releaseNotes || '无'}`)
+        log.info(
+          `发现新版本:${distVersion} -> ${newVersion},更新内容: ${res.latest.releaseNotes || '无'}`
+        )
+        const distUrl = res.latest.downloadUrl
+        await downloadFile(distUrl, distZipPath)
+        setConfValue('distVersion', newVersion)
+        return true
+      } else {
+        showInfoNotification('当前已是最新版本', `版本号: ${distVersion}`)
+      }
+  return false
 }
 
 
@@ -378,19 +335,7 @@ const handleDistZip = async (): Promise<void> => {
   log.debug(`[handleDistZip] 当前版本号: ${distVersion}`)
 
   try {
-    // 如果不存在 dist.zip，首次下载
-    if (!existsSync(distZipPath)) {
-      showInfoNotification('首次下载','正在下载程序...请稍后...')
-      log.info('[handleDistZip] dist.zip 不存在，开始首次下载...')
-      const distUrl = `https://api.upgrade.toolsetlink.com/v1/file/download?fileKey=${import.meta.env.VITE_UL_CONF_FILEKEY!}`
-      log.debug(`[handleDistZip] 下载URL: ${distUrl}`)
-      await downloadFile(distUrl, distZipPath)
-      log.info('[handleDistZip] 首次下载完成')
-    } else {
-      log.debug('[handleDistZip] dist.zip 已存在，检查更新...')
-      clearDistPath = await checkUpdate(distVersion)
-      log.debug(`[handleDistZip] 检查更新完成，clearDistPath: ${clearDistPath}`)
-    }
+    clearDistPath = await checkUpdate(distVersion)
   } catch (error) {
     log.error('[handleDistZip] 下载/检查更新阶段出错:', error)
     throw error
