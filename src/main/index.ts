@@ -174,8 +174,8 @@ try{
     // await checkElectronUpdrate()
     // 保存环境变量到配置中
     await loadEnvFile()
-    // 开始初始化
-    await runInitialization()
+    // 开始初始化,检查app更新
+    // await runInitialization()
  
   // console.log(resp);
   })

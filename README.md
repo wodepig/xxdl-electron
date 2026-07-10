@@ -67,6 +67,7 @@ AI写的
 1. 创建配置文件
 使用[gen-env-config.html](gen-env-config.html)生成配置文件, 并放到.env.demo中
 2. 打包
+因为:mode会运行build-with-mode.js,能够设置变量还原, 所以打包时需要指定:mode
 build:win:mode 打包windows下的zip包
 "build:win:mode": "node scripts/build-with-mode.js demo win"
 输出位置: /dist目录

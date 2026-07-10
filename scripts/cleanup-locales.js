@@ -1,5 +1,7 @@
-const { join } = require('path')
-const { promises: fs } = require('fs')
+const { join, basename } = require('path')
+const { promises: fs, existsSync } = require('fs')
+
+// ==================== Locales 清理 ====================
 
 const KEEP_LOCALES = new Set(['en-US.pak', 'en.pak', 'zh-CN.pak'])
 
@@ -36,13 +38,95 @@ const removeLocaleFiles = async (dirPath) => {
   )
 }
 
+// ==================== 资源图片清理 ====================
+
+/**
+ * 读取 .env 文件，获取 VITE_APP_ICON 和 VITE_AUTHOR_WX_IMG 引用的图片名
+ */
+function getReferencedImages() {
+  // 尝试多种 .env 文件名
+  const envCandidates = ['.env.demo', '.env.prod', '.env']  // 按优先级排列
+  let envContent = ''
+  for (const name of envCandidates) {
+    const envPath = join(process.cwd(), name)
+    if (existsSync(envPath)) {
+      envContent = require('fs').readFileSync(envPath, 'utf8')
+      break
+    }
+  }
+
+  if (!envContent) {
+    console.warn('[cleanup-locales] 未找到 .env 文件，跳过图片清理')
+    return []
+  }
+
+  // 手动解析 .env，避免依赖 dotenv
+  const env = {}
+  for (const line of envContent.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const eqIdx = trimmed.indexOf('=')
+    if (eqIdx === -1) continue
+    env[trimmed.slice(0, eqIdx).trim()] = trimmed.slice(eqIdx + 1).trim()
+  }
+
+  const icon = env.VITE_APP_ICON || ''
+  const wxImg = env.VITE_AUTHOR_WX_IMG || ''
+
+  const names = new Set()
+  if (icon) names.add(basename(icon))
+  if (wxImg) names.add(basename(wxImg))
+  // icon.png 在 electron-builder.yml 中被引用为应用图标
+  names.add('icon.png')
+
+  return [...names]
+}
+
+async function cleanupResourceImages(appOutDir) {
+  const resourcesImageDir = join(appOutDir, 'resources', 'image')
+
+  if (!existsSync(resourcesImageDir)) {
+    console.log('[cleanup-locales] resources/image 目录不存在，跳过图片清理')
+    return
+  }
+
+  const referenced = getReferencedImages()
+  console.log(`[cleanup-locales] 保留的资源图片: ${referenced.join(', ') || '(无)'}`)
+
+  const files = await fs.readdir(resourcesImageDir)
+  let deletedCount = 0
+
+  await Promise.all(
+    files.map(async (fileName) => {
+      const lowerName = fileName.toLowerCase()
+      const isImage = /\.(png|jpg|jpeg|gif|svg|ico|webp)$/i.test(lowerName)
+      if (!isImage) return
+
+      if (referenced.includes(fileName) || referenced.includes(lowerName)) return
+
+      const fullPath = join(resourcesImageDir, fileName)
+      await fs.rm(fullPath, { recursive: true, force: true })
+      deletedCount++
+    })
+  )
+
+  if (deletedCount > 0) {
+    console.log(`[cleanup-locales] 已清理 ${deletedCount} 个未使用的资源图片`)
+  }
+}
+
+// ==================== 主入口 ====================
+
 module.exports = async (context) => {
   const appOutDir = context.appOutDir
+
+  // 1. 清理多余的语言包
   const candidateDirs = [
     join(appOutDir, 'locales'),
     join(appOutDir, 'resources', 'locales')
   ]
-
   await Promise.all(candidateDirs.map(removeLocaleFiles))
-}
 
+  // 2. 清理未使用的资源图片
+  await cleanupResourceImages(appOutDir)
+}

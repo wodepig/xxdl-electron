@@ -2,6 +2,7 @@ const { join } = require('path')
 const { promises: fs } = require('fs')
 const { exec } = require('child_process')
 const { promisify } = require('util')
+const { tmpdir } = require('os')
 
 const execAsync = promisify(exec)
 
@@ -18,6 +19,7 @@ const createShortcut = async (appOutDir, exeName) => {
   const shortcutPath = join(appOutDir, `${exeName}.lnk`)
   const targetPath = join(appOutDir, `${exeName}.exe`)
 
+  // 写入临时 ps1 文件，避免内联命令时中文路径编码问题
   const psScript = `
     $WshShell = New-Object -comObject WScript.Shell
     $Shortcut = $WshShell.CreateShortcut('${shortcutPath}')
@@ -25,12 +27,16 @@ const createShortcut = async (appOutDir, exeName) => {
     $Shortcut.WorkingDirectory = '${appOutDir}'
     $Shortcut.Save()
   `
+  const tmpFile = join(tmpdir(), `create-shortcut-${Date.now()}.ps1`)
+  await fs.writeFile(tmpFile, psScript, 'utf8')
 
   try {
-    await execAsync(`powershell -Command "${psScript}"`, { shell: 'powershell.exe' })
+    await execAsync(`powershell -ExecutionPolicy Bypass -File "${tmpFile}"`)
     console.log(`Created shortcut: ${shortcutPath}`)
   } catch (error) {
     console.error(`Failed to create shortcut: ${error.message}`)
+  } finally {
+    await fs.rm(tmpFile, { force: true })
   }
 }
 
