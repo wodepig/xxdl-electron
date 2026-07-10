@@ -11,12 +11,14 @@ type Settings = {
   updateFrequency: 'onStart' | 'never' | 'daily'
   startupActions: string[]
   browserType: BrowserType
+  allowRollback: boolean
 }
 
 const defaultSettings: Settings = {
   updateFrequency: 'onStart',
   startupActions: [],
-  browserType: 'default'
+  browserType: 'default',
+  allowRollback: false
 }
 
 const updateFrequencyOptions = [
@@ -40,7 +42,9 @@ const normalizeSettings = (incoming: Partial<Settings> = {}): Settings => {
     startupActions: Array.isArray(incoming.startupActions) ? [...incoming.startupActions] : [],
     browserType: allowedBrowserTypes.includes(browserType as BrowserType)
       ? (browserType as BrowserType)
-      : defaultSettings.browserType
+      : defaultSettings.browserType,
+    allowRollback:
+      typeof incoming.allowRollback === 'boolean' ? incoming.allowRollback : defaultSettings.allowRollback
   }
 }
 
@@ -60,12 +64,13 @@ const loadSettings = async (): Promise<void> => {
 const saveSettings = async (): Promise<void> => {
   try {
     if (window.api?.saveSettings) {
-      const settingsToSave: { updateFrequency: string; startupActions: string[]; browserType: string } = {
+      const settingsToSave: { updateFrequency: string; startupActions: string[]; browserType: string; allowRollback: boolean } = {
         updateFrequency: String(settings.value.updateFrequency),
         startupActions: Array.isArray(settings.value.startupActions)
           ? [...settings.value.startupActions].map(String)
           : [],
-        browserType: String(settings.value.browserType || 'default')
+        browserType: String(settings.value.browserType || 'default'),
+        allowRollback: settings.value.allowRollback
       }
 
       const result = await window.api.saveSettings(settingsToSave)
@@ -198,6 +203,18 @@ onMounted(() => {
               <input type="checkbox" value="sendNotification" v-model="settings.startupActions"
                 :class="component.checkbox" />
               <span :class="`text-base font-bold ${text.primary}`">启动后发送通知</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 回滚设置 -->
+        <div :class="component.card">
+          <h2 :class="component.cardTitle">回滚设置</h2>
+          <div class="border-2 border-gray-900">
+            <label
+              :class="`flex items-center gap-4 p-4 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${settings.allowRollback ? component.selectedCheckbox : bg.white}`">
+              <input type="checkbox" v-model="settings.allowRollback" :class="component.checkbox" />
+              <span :class="`text-base font-bold ${text.primary}`">允许回滚</span>
             </label>
           </div>
         </div>

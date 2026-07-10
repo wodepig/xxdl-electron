@@ -55,6 +55,7 @@ export {
   startInitialize,
   deleteAppData,
   reportAppEvent,
+  reportClientEvent,
   type UpgradeResponse
 } from './node-app-update'
 

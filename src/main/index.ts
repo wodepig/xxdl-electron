@@ -5,7 +5,7 @@ import { LogFileWatcher, showErrorNotification } from './utils/index'
 //@ts-ignore
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { startInitialize,deleteAppData, cleanupServerProcess, addLog2Vue, sendLatestLogToMainWindow, sleep, getAppDir,isPortInUse, sendInitProgress
-  ,setDownloadProgressCallback,sendDownloadProgress , type NotificationType} from './utils/index'
+  ,setDownloadProgressCallback,sendDownloadProgress , type NotificationType,reportClientEvent} from './utils/index'
 import { getConfValue, setConfValue, clearConf, getEnvConf,loadEnvFile } from './utils/config'
 import { createMainWindow, ensureMenuCreated } from './utils/index'
 
@@ -85,9 +85,13 @@ const runInitialization = async () => {
     
     await startInitialize()
     log.info('[runInitialization] 初始化完成')
+    // 汇报初始化事件
+    reportClientEvent('startup')
   } catch (error) {
     const errorMessage = `应用初始化失败: ${(error as Error).message}`
     log.warn('应用初始化失败:', error)
+       // 汇报错误事件
+    reportClientEvent('crash', { msg:errorMessage })
     dialog.showErrorBox('初始化错误', errorMessage)
   }
 }
@@ -103,6 +107,8 @@ function initLogConfig() {
 
 // 应用退出时清理服务器进程
 app.on('before-quit', () => {
+  // 汇报服务器进程已停止
+  reportClientEvent('exit')
   cleanupServerProcess()
 })
 
@@ -175,7 +181,7 @@ try{
     // 保存环境变量到配置中
     await loadEnvFile()
     // 开始初始化,检查app更新
-    // await runInitialization()
+    await runInitialization()
  
   // console.log(resp);
   })
@@ -227,7 +233,7 @@ try{
     'save-settings',
     (
       _event,
-      settings: { updateFrequency: string; startupActions: string[]; browserType?: string }
+      settings: { updateFrequency: string; startupActions: string[]; browserType?: string; allowRollback?: boolean }
     ) => {
       try {
         // 确保数据是可序列化的
@@ -239,9 +245,11 @@ try{
         setConfValue('updateFrequency', updateFrequency, 'settings')
         setConfValue('startupActions', startupActions, 'settings')
         setConfValue('browserType', browserType, 'settings')
+        setConfValue('allowRollback', settings.allowRollback, 'settings')
+        log.info('设置已保存')
         return { success: true }
       } catch (error) {
-        console.error('保存设置失败:', error)
+        log.error('保存设置失败:', error)
         return { success: false, error: (error as Error).message }
       }
     }

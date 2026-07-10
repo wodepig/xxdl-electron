@@ -11,11 +11,12 @@
  */
 import { existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
+import os from 'os'
 import { app } from 'electron'
 import log from 'electron-log/main'
 import { getConfValue, setConfValue } from './config'
-import { deleteDir, downloadFile,extractZip4unzipit,getAppDir } from './fs-utils'
-import {showInfoNotification,showWarningNotification} from './window'
+import { deleteDir, downloadFile, extractZip4unzipit, getAppDir } from './fs-utils'
+import { showInfoNotification, showWarningNotification } from './window'
 import { buildUrlWithPort, cleanupServerProcess, getActualPort, handleNodeServer, loadMainWindowUrl } from './server-manager'
 
 // ==================== UpgradeLink API 客户端 ====================
@@ -105,7 +106,7 @@ export async function getFileUpgrade(
       devModelKey: '',
       devKey: ''
     });
-    
+
     const response = await client.FileUpgrade(request);
 
     // console.log('\n文件升级信息响应:');
@@ -201,7 +202,7 @@ export const shouldCheckUpdate = (): boolean => {
 
   // 从不更新
   if (updateFrequency === 'never') {
-    showWarningNotification('更新频率为"从不更新"','“从不更新”会跳过更新检查, 可能会错过新功能和安全修复')
+    showWarningNotification('更新频率为"从不更新"', '“从不更新”会跳过更新检查, 可能会错过新功能和安全修复')
     log.warn('注意: 更新频率已设置为"从不更新"，跳过更新检查')
     return false
   }
@@ -223,7 +224,7 @@ export const shouldCheckUpdate = (): boolean => {
       return true
     } else {
       const hoursSinceLastCheck = Math.floor((now - lastCheckTime) / (60 * 60 * 1000))
-      showWarningNotification('更新频率为"每天更新一次"',`距离上次检查仅 ${hoursSinceLastCheck} 小时，本次启动跳过更新检查`)
+      showWarningNotification('更新频率为"每天更新一次"', `距离上次检查仅 ${hoursSinceLastCheck} 小时，本次启动跳过更新检查`)
       log.info(
         `注意: 更新频率设置为"每天更新一次"，距离上次检查仅 ${hoursSinceLastCheck} 小时，跳过更新检查`
       )
@@ -233,6 +234,104 @@ export const shouldCheckUpdate = (): boolean => {
 
   // 默认行为：每次启动时更新
   return true
+}
+
+/**
+ * 生成客户端唯一标识（计算机名 + CPU 型号哈希，不报错、不为空）
+ */
+const getClientId = (): string => {
+  try {
+    const parts: string[] = []
+
+    // 计算机名
+    const hostname = os.hostname()
+    if (hostname) parts.push(hostname)
+
+    const username = os.userInfo()?.username || ''
+    if (username) parts.push(username)
+    if (parts.length > 0) return parts.join('-')
+  } catch {
+    // 忽略任何异常
+  }
+
+  // 绝对兜底
+  return `unknown-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+/**
+ * 获取系统硬件信息（不报错）
+ */
+const getSystemInfo = (): Record<string, any> => {
+  try {
+    return {
+      hostname: os.hostname(),
+      platform: os.platform(),
+      release: os.release(),
+      type: os.type(),
+      arch: os.arch(),
+      version: os.version(),
+      electronVersion: process.versions.electron,
+      cpuModel: os.cpus()[0]?.model || '',
+      cpuCores: os.cpus().length,
+      totalMem: os.totalmem(),
+      username: os.userInfo()?.username || '',
+    }
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * 上报客户端事件（不影响主线程）
+ * @param eventType 事件类型（startup/download/install/error/crash/exception/exit 等）
+ * @param metadata 扩展数据
+ */
+export const reportClientEvent = async (
+  eventType: string,
+  metadata?: Record<string, any>
+): Promise<void> => {
+  try {
+    const slug = getConfValue('VITE_UPD_SLUG', '', 'env')
+    const updUrl = getConfValue('VITE_UPD_URL', '', 'env')
+    let distVersion = getConfValue('distVersion', '0.0.1')
+    if (!slug || !updUrl) {
+      log.warn('[reportClientEvent] slug 或 updUrl 未配置，跳过上报')
+      return
+    }
+
+    const body: Record<string, any> = {
+      eventType,
+      clientId: getClientId(),
+      clientName: os.version(),
+      clientVersion: app.getVersion(),
+      version: distVersion,
+      source: 'file',
+      platform: process.platform,
+      arch: process.arch,
+      channel: 'latest',
+      metadata: getSystemInfo()
+    }
+
+    // 合并用户传入的扩展数据
+    if (metadata) {
+      body.metadata = { ...body.metadata, ...metadata }
+    }
+
+    const url = `${updUrl}/api/public/files/${slug}/events`
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+
+    if (resp.ok) {
+      log.info(`[reportClientEvent] 事件上报成功: ${eventType}`)
+    } else {
+      log.warn(`[reportClientEvent] 事件上报失败: ${eventType}, status=${resp.status}`)
+    }
+  } catch (error) {
+    log.error('[reportClientEvent] 上报异常:', error)
+  }
 }
 
 /**
@@ -272,45 +371,62 @@ export const checkUpdate = async (distVersion: string): Promise<boolean> => {
   }
 
   const appDir = getConfValue('appDir', '')
-  
+
   const distZipPath = join(appDir, 'dist.zip')
 
-      const slug = getConfValue('VITE_UPD_SLUG','','env')
-      const updUrl = getConfValue('VITE_UPD_URL','','env')
-      const url = `${updUrl}/api/public/files/${slug}/check-update?channel=stable&env=prod`
-        log.info('检查'+slug+'程序更新...:' + url)
-      
+
+  const slug = getConfValue('VITE_UPD_SLUG', '', 'env')
+  const updUrl = getConfValue('VITE_UPD_URL', '', 'env')
+  const url = `${updUrl}/api/public/files/${slug}/check-update?channel=stable&env=prod`
+  log.info('检查' + slug + '程序更新...:' + url)
+
   const resp = await fetch(url)
   const res = await resp.json()
-  if(!resp.ok){
-     log.warn('检查更新失败, 继续使用旧文件')
-     showWarningNotification('更新失败',res.statusMessage || '检查更新失败')
+  if (!resp.ok) {
+    log.warn('检查更新失败, 继续使用旧文件')
+    showWarningNotification('更新失败', res.statusMessage || '检查更新失败')
     throw new Error(res.statusMessage || '检查更新失败')
-    
+
   }
-      
-      if(res.error){
-        showWarningNotification('更新失败',res.statusMessage)
-        throw new Error(res.statusMessage)
-      }
-      if(!res.updateAvailable){
- showWarningNotification('更新失败',res.reason || '无可用更新文件')
- throw new Error(res.reason || '无可用更新文件')
-      }
-      // 对比版本号，判断是否需要更新
-      const newVersion = res.latest.version
-      if(await compareVersion(distVersion, newVersion)){
-        showInfoNotification('发现新版本',`版本号:${distVersion} -> ${newVersion},更新内容: ${res.latest.releaseNotes || '无'}`)
-        log.info(
-          `发现新版本:${distVersion} -> ${newVersion},更新内容: ${res.latest.releaseNotes || '无'}`
-        )
-        const distUrl = res.latest.downloadUrl
-        await downloadFile(distUrl, distZipPath)
-        setConfValue('distVersion', newVersion)
-        return true
-      } else {
-        showInfoNotification('当前已是最新版本', `版本号: ${distVersion}`)
-      }
+
+  if (res.error) {
+    showWarningNotification('更新失败', res.statusMessage)
+    throw new Error(res.statusMessage)
+  }
+  if (!res.updateAvailable) {
+    showWarningNotification('更新失败', res.reason || '无可用更新文件')
+    throw new Error(res.reason || '无可用更新文件')
+  }
+  // 对比版本号，判断是否需要更新
+  const newVersion = res.latest.version
+  if (await compareVersion(distVersion, newVersion)) {
+
+    showInfoNotification('发现新版本', `版本号:${distVersion} -> ${newVersion},更新内容: ${res.latest.releaseNotes || '无'}`)
+    log.info(
+      `发现新版本:${distVersion} -> ${newVersion},更新内容: ${res.latest.releaseNotes || '无'}`
+    )
+    const distUrl = res.latest.downloadUrl
+
+    await downloadFile(distUrl, distZipPath)
+    setConfValue('distVersion', newVersion)
+    // 汇报下载信息
+    reportClientEvent('download')
+    return true
+  } else {
+    const allowRollback = getConfValue('allowRollback', false, 'settings') as boolean
+    // 如果允许回滚，且当前版本号与最新版本号不同(等于或小于最新版本号)
+    if (allowRollback && distVersion !== newVersion) {
+      showInfoNotification('版本开始回滚', `版本号: ${distVersion} -> ${newVersion}\n${res.latest.releaseNotes || '无'}`)
+      const distUrl = res.latest.downloadUrl
+      await downloadFile(distUrl, distZipPath)
+      setConfValue('distVersion', newVersion)
+      // 汇报下载信息
+      reportClientEvent('download')
+      return true
+    }else{
+      showInfoNotification('当前已是最新版本', `版本号: ${distVersion}`)
+    }
+  }
   return false
 }
 
@@ -321,7 +437,7 @@ export const checkUpdate = async (distVersion: string): Promise<boolean> => {
  * 包括：首次下载、检查更新、解压
  */
 const handleDistZip = async (): Promise<void> => {
-  
+
   log.debug('[handleDistZip] 开始执行...')
   let clearDistPath = false
 
@@ -329,7 +445,10 @@ const handleDistZip = async (): Promise<void> => {
   const distZipPath = join(appDir, 'dist.zip')
   const distDir = join(appDir, extract_dir_name)
   const serverPath = join(distDir, 'server', 'index.mjs')
-
+  if (!existsSync(distZipPath)) {
+    // 文件不存在, 就重置版本号触发下载
+    setConfValue('distVersion', '0.0.1')
+  }
   // 从配置中读取 distVersion，如果不存在则设置为 1
   let distVersion = getConfValue('distVersion', '0.0.1')
   log.debug(`[handleDistZip] 当前版本号: ${distVersion}`)
