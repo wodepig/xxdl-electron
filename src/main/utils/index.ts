@@ -93,5 +93,5 @@ export { LogFileWatcher } from './log-watcher'
 
 // ==================== Electron 自动更新 ====================
 export {
-  checkElectronUpdrate
+  checkAndUpdate
 } from './electron-update'

@@ -55,6 +55,7 @@ type SystemVersion = {
   arch: string
   language: string
   appVersion: string
+  startVersion: string
   electronVersion: string
   chromeVersion: string
   nodeVersion: string

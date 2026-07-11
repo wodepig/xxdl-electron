@@ -167,6 +167,12 @@
           </h2>
           <div class="space-y-4">
             <div>
+              <label for="VITE_APP_PACKAGE_NAME" class="form-label-required">VITE_APP_PACKAGE_NAME</label>
+              <p class="form-hint">最终 package.json 中的 name，建议使用英文、数字和短横线</p>
+              <input type="text" id="VITE_APP_PACKAGE_NAME" class="form-input" value="xiyin-tools">
+              <p class="error-text" id="VITE_APP_PACKAGE_NAME_error">请填写包名</p>
+            </div>
+            <div>
               <label for="VITE_APP_NAME" class="form-label-required">VITE_APP_NAME</label>
               <p class="form-hint">应用名，默认是压缩包名称和exe的名称</p>
               <input type="text" id="VITE_APP_NAME" class="form-input" value="希音工具">
@@ -321,7 +327,7 @@
   // 配置项列表（包含隐藏的VITE_APP_LINKS）
   const configItems = [
     'VITE_UPD_SLUG', 'VITE_UPD_URL', 'VITE_UPD_AK',
-    'VITE_APP_NAME', 'VITE_APP_EXE_NAME', 'VITE_APP_DESC', 'VITE_APP_ID', 'VITE_APP_ICON',
+    'VITE_APP_PACKAGE_NAME', 'VITE_APP_NAME', 'VITE_APP_EXE_NAME', 'VITE_APP_DESC', 'VITE_APP_ID', 'VITE_APP_ICON',
     'VITE_APP_HOME', 'VITE_APP_LINKS', 'VITE_AUTHOR_NAME', 'VITE_AUTHOR_WX',
     'VITE_AUTHOR_WX_IMG', 'VITE_AUTHOR_EMAIL', 'VITE_ADMIN_PASSWORD'
   ];
@@ -329,6 +335,7 @@
   // 预设配置
   const presets = {
     xiyin: {
+      VITE_APP_PACKAGE_NAME: 'xiyin-tools',
       VITE_APP_NAME: '希音工具',
       VITE_APP_EXE_NAME: '希音工具',
       VITE_APP_DESC: '希音自动化工具',
@@ -344,6 +351,7 @@
       ]
     },
     rpa: {
+      VITE_APP_PACKAGE_NAME: 'rpa-tools',
       VITE_APP_NAME: 'RPA工具',
       VITE_APP_EXE_NAME: 'RPA工具',
       VITE_APP_DESC: 'RPA自动化工具',
@@ -512,6 +520,7 @@
     { id: 'VITE_UPD_SLUG', rule: 'required', message: '请填写更新服务的 Slug' },
     { id: 'VITE_UPD_URL', rule: 'required', message: '请填写更新服务的 URL 地址' },
     { id: 'VITE_UPD_AK', rule: 'required', message: '请填写更新服务的 AccessKey' },
+    { id: 'VITE_APP_PACKAGE_NAME', rule: 'required', message: '请填写包名' },
     { id: 'VITE_APP_NAME', rule: 'required', message: '请填写应用名称' },
     { id: 'VITE_APP_EXE_NAME', rule: 'required', message: '请填写单独指定的exe名称' },
     { id: 'VITE_APP_DESC', rule: 'required', message: '请填写应用描述' },

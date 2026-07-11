@@ -38,7 +38,9 @@ Nuxt或Next全栈项目开发后, 打包并构建. 然后把构建物上传到Up
 VITE_UPD_SLUG=更新服务的Slug
 VITE_UPD_URL=更新服务的URL地址
 VITE_UPD_AK=更新服务的AccessKey
+VITE_APP_PACKAGE_NAME=最终 package.json 中的 name，建议使用英文、数字和短横线，例如 rpa-tools
 VITE_APP_NAME=应用名
+VITE_APP_EXE_NAME=exe文件名和安装目录名
 VITE_APP_DESC=应用描述
 VITE_APP_ID=com.electron.app
 VITE_APP_ICON=应用的图标和icon,如:image/app.png
@@ -65,14 +67,31 @@ AI写的
 
 ## 打包
 1. 创建配置文件
-使用[gen-env-config.html](gen-env-config.html)生成配置文件, 并放到.env.demo中
+使用[gen-env-config.html](gen-env-config.html)生成配置文件, 默认构建放到.env中; 如果要区分多个包, 可以放到.env.demo、.env.demo2等文件中.
 2. 打包
-因为:mode会运行build-with-mode.js,能够设置变量还原, 所以打包时需要指定:mode
-build:win:mode 打包windows下的zip包
-"build:win:mode": "node scripts/build-with-mode.js demo win"
+现在包名、文件名、应用名、描述、图标等信息都从.env文件读取, 不再需要旧的“打包前替换package.json/electron-builder.yml, 打包后再还原”的脚本流程.
+
+默认读取.env:
+```
+pnpm build:win
+```
+
+读取.env.demo:
+```
+pnpm build:win:mode
+```
+
+读取.env.demo2:
+```
+pnpm build:win:demo2
+```
+
+也可以手动指定mode:
+```
+node scripts/build-with-mode.js demo win
+```
 输出位置: /dist目录
-打包.env.demo的环境变量. 会在打包前执行scripts/build-with-mode.js替换electron-builder.yml的部分字段然后打包成zip包
-相关的配置在electron-builder.yml中.默认打包为zip压缩包. 下载后解压即可使用
+相关的动态打包配置在electron-builder.config.cjs中. 默认打包为zip压缩包和nsis安装包.
 3. mini-electron
 在electron-builder.yml中添加electronDist: D:\\soft\\electron
 compression: maximum会花费很长时间构建(比normal多3倍的时间), 但打包后的zip包大小没变化

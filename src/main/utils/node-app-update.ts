@@ -370,7 +370,7 @@ export const checkUpdate = async (distVersion: string): Promise<boolean> => {
     return false
   }
 
-  const appDir = getConfValue('appDir', '')
+  const appDir = getAppDir()
 
   const distZipPath = join(appDir, 'dist.zip')
 
@@ -437,7 +437,6 @@ export const checkUpdate = async (distVersion: string): Promise<boolean> => {
  * 包括：首次下载、检查更新、解压
  */
 const handleDistZip = async (): Promise<void> => {
-
   log.debug('[handleDistZip] 开始执行...')
   let clearDistPath = false
 

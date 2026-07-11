@@ -1,180 +1,104 @@
-import { join, dirname } from 'path'
-import { app, dialog, shell } from 'electron'
-import { autoUpdater } from "electron-updater"
-import { getConfValue, setConfValue, getEnvConf } from './config'
-import { getElectronUpgrade } from './node-app-update'
-//@ts-ignore
-import { is } from '@electron-toolkit/utils'
+import { app, dialog } from 'electron'
+import { autoUpdater } from 'electron-updater'
+import { getConfValue } from './config'
+import { sendInitProgress } from './window'
+import log from 'electron-log/main'
 
-// 检查electron更新
-export const checkElectronUpdrate = async () =>{
-    const result = await downUpdate()
-}
+// 固定 slug 为 xxdl-electron
+const ELECTRON_APP_SLUG = 'xxdl-electron'
 
-// 检查更新
-export const checkForUpdates = async () =>{
-    //  const appVersion = getConfValue('appVersion', '1.0.0')
-     const appVersion = app.getVersion()
-   try {
-    if (!app.isPackaged) { 
-    Object.defineProperty(app, 'isPackaged', { 
-        get: () => true, 
-    }); 
-}
-console.log('app_ver',app.getVersion());
+const trimTrailingSlash = (value: string): string => value.replace(/\/+$/, '')
 
-    autoUpdater.updateConfigPath = join(getAppDir(), "dev-update.yml")
-   
-    // 打印相关参数
-    console.log('当前启动器版本号:', appVersion);
-    const electronKey = getEnvConf('VITE_UL_CONF_APP_ELKEY')
-     const ak = getEnvConf('VITE_UL_CONF_APP_AK')
-      const sk = getEnvConf('VITE_UL_CONF_APP_SK')
-    console.log('electron更新密钥:', electronKey);
-    if(!electronKey){
-      return {
-        error: '未配置electron更新密钥',
-        currentVersion: appVersion
-      };
-    }
-    console.log('当前启动器版本号:', appVersion);
-    const platform = 'windows'
-    const arch = 'x64' 
-        const FeedURL = `https://api.upgrade.toolsetlink.com/v1/electron/upgrade?electronKey=${electronKey}&versionName=${appVersion}&appointVersionName=&devModelKey=&devKey=&platform=${platform}&arch=${arch}`;
-    autoUpdater.setFeedURL({
-      url: FeedURL,
-      provider: 'generic',
-    });
-    autoUpdater.requestHeaders = {
-      'X-AccessKey': ak,
-    };
+const getElectronUpdateFeedUrl = (): string => {
+  const updUrl = getConfValue('VITE_UPD_URL', '', 'env') as string
 
-    const result = await autoUpdater.checkForUpdates();
-    // 打印返回结果
-    console.log("result: ",result);
-
-    if (!result || !result.updateInfo) {
-      // 接口调用失败
-      return {
-        error: "无法获取更新信息",
-        currentVersion: appVersion
-      };
-    } else if (result.updateInfo.version === appVersion) {
-      // 返回的版本号与当前一直，则代表当前为最新版本
-      return {
-        updateAvailable: false,
-        currentVersion: appVersion
-      };
-    } else if (result.updateInfo.version) {
-      return {
-        updateAvailable: true,
-        currentVersion: appVersion,
-        newVersion: result.updateInfo.version
-      };
-    }
-
-    return {
-      updateAvailable: false,
-      currentVersion: appVersion
-    };
-  } catch (error) {
-    if (error.code === 'ETIMEDOUT') {
-      return { error: '网络请求超时，请检查网络连接', currentVersion: appVersion };
-    }
-    return {
-      error: error.message,
-      currentVersion: appVersion
-    };
-  } 
-}
-
-const downUpdate = async () =>{
-     const appVersion = app.getVersion()
-    try {
-    if (!app.isPackaged) { 
-    Object.defineProperty(app, 'isPackaged', { 
-        get: () => true, 
-    }); 
-}
-    // autoUpdater.updateConfigPath = join(getAppDir(), "dev-update.yml")
-   
-    // 打印相关参数
-    console.log('当前启动器版本号:', appVersion);
-    const electronKey = getEnvConf('VITE_UL_CONF_APP_ELKEY')
-     const ak = getEnvConf('VITE_UL_CONF_APP_AK')
-      const sk = getEnvConf('VITE_UL_CONF_APP_SK')
-    console.log('electron_key:', electronKey);
-        console.log('ak:', ak);
-        console.log('sk:', sk);
-    if(!electronKey){
-      return {
-        error: '未配置electron更新密钥',
-        currentVersion: appVersion
-      };
-    }
-    console.log('当前启动器版本号:', appVersion);
-    const platform = 'windows'
-    const arch = 'x64' 
-        const FeedURL = `https://api.upgrade.toolsetlink.com/v1/electron/upgrade?electronKey=${electronKey}&versionName=${appVersion}&appointVersionName=&devModelKey=&devKey=&platform=${platform}&arch=${arch}`;
-    console.log('FeedURL:', FeedURL);
-    
-        autoUpdater.setFeedURL({
-      url: FeedURL,
-      provider: 'generic',
-    });
-    autoUpdater.requestHeaders = {
-      'X-AccessKey': ak,
-    };
-
-    const result = await autoUpdater.checkForUpdates();
-
-    // 打印返回结果
-    console.log('result响应',result);
-
-    autoUpdater.setFeedURL({
-      url: result.updateInfo.path,
-      provider: 'generic',
-    });
-    console.log('[流程] 下载更新开始，URL:', result.updateInfo.path);
-    try {
-      await autoUpdater.downloadUpdate();
-      autoUpdater.quitAndInstall();
-      console.log('[流程] 下载更新完成');
-    } catch (e) {
-      console.error('[流程] 下载更新失败:', e);
-      console.error('[DEBUG] 错误堆栈:', e.stack);
-      throw e;
-    }
-
-
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
+  if (!updUrl) {
+    return ''
   }
-}
-// 添加下载进度事件监听
-autoUpdater.on('download-progress', (progressObj) => {
-    console.log({
-    percent: progressObj.percent,
-    transferred: progressObj.transferred,
-    total: progressObj.total
-  });
-    
 
-//   mainWindow.webContents.send('download-progress', {
-//     percent: progressObj.percent,
-//     transferred: progressObj.transferred,
-//     total: progressObj.total
-//   });
-});
-autoUpdater.on('error', (error) => {
-//   mainWindow.webContents.send('update-error', error.message);
-console.error('[DEBUG] 错误堆栈:', error.stack);
-});
-// 获取程序运行目录
-export const getAppDir = (): string => {
-  if (is.dev) {
-    return join(__dirname, '../../../')
+  return `${trimTrailingSlash(updUrl)}/updates/${ELECTRON_APP_SLUG}/win32/latest/`
+}
+
+const formatBytes = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)}MB`
+
+const removeAutoUpdaterListeners = (): void => {
+  autoUpdater.removeAllListeners('checking-for-update')
+  autoUpdater.removeAllListeners('update-available')
+  autoUpdater.removeAllListeners('update-not-available')
+  autoUpdater.removeAllListeners('download-progress')
+  autoUpdater.removeAllListeners('update-downloaded')
+  autoUpdater.removeAllListeners('error')
+}
+
+const registerAutoUpdaterListeners = (): void => {
+  removeAutoUpdaterListeners()
+
+  autoUpdater.on('checking-for-update', () => {
+    log.info('[electron-update] checking for update...')
+    sendInitProgress(1, '正在检查 Electron 更新...')
+  })
+
+  autoUpdater.on('update-available', (info) => {
+    log.info(`[electron-update] update available: ${app.getVersion()} -> ${info.version}`)
+    sendInitProgress(5, `发现新版本 ${info.version}，开始下载...`)
+  })
+
+  autoUpdater.on('update-not-available', () => {
+    log.info('[electron-update] no update available')
+  })
+
+  autoUpdater.on('download-progress', (progress) => {
+    const percent = Number.isFinite(progress.percent) ? progress.percent : 0
+    const pct = Math.min(95, Math.max(5, Math.round(percent * 0.9) + 5))
+    const transferred = formatBytes(progress.transferred || 0)
+    const total = progress.total ? `/${formatBytes(progress.total)}` : ''
+
+    sendInitProgress(pct, `正在下载更新包 ${transferred}${total}`)
+  })
+
+  autoUpdater.on('update-downloaded', (info) => {
+    log.info(`[electron-update] update downloaded: ${info.version}`)
+    sendInitProgress(98, '下载完成，正在安装更新...')
+
+    setImmediate(() => {
+      autoUpdater.quitAndInstall(false, true)
+    })
+  })
+
+  autoUpdater.on('error', (error) => {
+    log.error('[electron-update] autoUpdater error:', error)
+    sendInitProgress(0, `更新失败: ${error.message}`)
+    dialog.showErrorBox('更新失败', `Electron 更新失败: ${error.message}`)
+  })
+}
+
+/**
+ * 检查 Electron 更新，并在发现新版本后自动下载、自动安装。
+ */
+export const checkAndUpdate = async (): Promise<void> => {
+  const feedUrl = getElectronUpdateFeedUrl()
+
+  if (!feedUrl) {
+    log.warn('[electron-update] VITE_UPD_URL 未配置')
+    return
   }
-  return join(app.getAppPath(), '../../')
+
+  try {
+    autoUpdater.autoDownload = true
+    autoUpdater.autoInstallOnAppQuit = false
+    autoUpdater.disableWebInstaller = true
+    autoUpdater.logger = log
+    autoUpdater.setFeedURL({
+      provider: 'generic',
+      url: feedUrl
+    })
+
+    registerAutoUpdaterListeners()
+
+    log.info(`[electron-update] feed url: ${feedUrl}`)
+    await autoUpdater.checkForUpdates()
+  } catch (error) {
+    log.error('[electron-update] check and update failed:', error)
+    sendInitProgress(0, `检查更新失败: ${(error as Error).message}`)
+  }
 }

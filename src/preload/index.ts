@@ -1,9 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import { getConfValue } from '../main/utils'
 
-// import { Conf } from 'electron-conf'
-// import { getAppDir } from '../main/utils'
+
 
 // 添加调试日志
 
@@ -47,11 +45,13 @@ const getAppInfos = () =>{
 // 获取系统版本信息
 const getSystemVersions = async () => {
   const appVersion = await api.getConfValue({key:'distVersion',defaultValue:'1'})
+  const startVersion = await api.getConfValue({key:'startExeVersion',defaultValue:'N/A'})
   const resp = {
     platform: process.platform,
     arch: process.arch,
     language: navigator.language,
     appVersion:  appVersion, // 可以从package.json获取实际版本
+    startVersion: startVersion,
     electronVersion: process.versions.electron,
     chromeVersion: process.versions.chrome,
     nodeVersion: process.versions.node

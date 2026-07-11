@@ -44,8 +44,8 @@ const removeLocaleFiles = async (dirPath) => {
  * 读取 .env 文件，获取 VITE_APP_ICON 和 VITE_AUTHOR_WX_IMG 引用的图片名
  */
 function getReferencedImages() {
-  // 尝试多种 .env 文件名
-  const envCandidates = ['.env.demo', '.env.prod', '.env']  // 按优先级排列
+  const mode = process.env.BUILD_MODE || process.env.MODE || 'production'
+  const envCandidates = [`.env.${mode}`, '.env']
   let envContent = ''
   for (const name of envCandidates) {
     const envPath = join(process.cwd(), name)
@@ -73,11 +73,11 @@ function getReferencedImages() {
   const icon = env.VITE_APP_ICON || ''
   const wxImg = env.VITE_AUTHOR_WX_IMG || ''
   // icon.png 在 electron-builder.yml 中被引用为应用图标
-  names.add('icon.png')
+
   const names = new Set()
   if (icon) names.add(basename(icon))
   if (wxImg) names.add(basename(wxImg))
-
+  names.add('icon.png')
 
   return [...names]
 }

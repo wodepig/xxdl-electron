@@ -5,7 +5,7 @@ import { LogFileWatcher, showErrorNotification } from './utils/index'
 //@ts-ignore
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { startInitialize,deleteAppData, cleanupServerProcess, addLog2Vue, sendLatestLogToMainWindow, sleep, getAppDir,isPortInUse, sendInitProgress
-  ,setDownloadProgressCallback,sendDownloadProgress , type NotificationType,reportClientEvent} from './utils/index'
+  ,setDownloadProgressCallback,sendDownloadProgress , type NotificationType,reportClientEvent,checkAndUpdate} from './utils/index'
 import { getConfValue, setConfValue, clearConf, getEnvConf,loadEnvFile } from './utils/config'
 import { createMainWindow, ensureMenuCreated } from './utils/index'
 
@@ -180,6 +180,8 @@ try{
     // await checkElectronUpdrate()
     // 保存环境变量到配置中
     await loadEnvFile()
+    // 检查并更新electron启动器应用
+    await checkAndUpdate()
     // 开始初始化,检查app更新
     await runInitialization()
  
@@ -263,6 +265,7 @@ try{
       clearConf('common')
       setConfValue('updateFrequency', DEFAULT_SETTINGS.updateFrequency, 'settings')
       setConfValue('distVersion', '1')
+      setConfValue('startVersion', 'N/A')
       setConfValue('startupActions', DEFAULT_SETTINGS.startupActions, 'settings')
       setConfValue('browserType', DEFAULT_SETTINGS.browserType, 'settings')
       deleteAppData()

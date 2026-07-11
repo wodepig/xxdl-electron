@@ -10,6 +10,7 @@ const versions = reactive<SystemVersion>({
   arch: '未知',
   language: '未知',
   appVersion: 'N/A',
+  startVersion: 'N/A',
   electronVersion: 'N/A',
   chromeVersion: 'N/A',
   nodeVersion: 'N/A'
@@ -23,6 +24,7 @@ const hydrateSystemInfo = async (): Promise<void> => {
         versions.arch = info.arch || '未知'
         versions.language = info.language || '未知'
         versions.appVersion = info.appVersion || '1'
+        versions.startVersion = info.startVersion || 'N/A'
         versions.electronVersion = info.electronVersion || 'N/A'
         versions.chromeVersion = info.chromeVersion || 'N/A'
         versions.nodeVersion = info.nodeVersion || 'N/A'
@@ -71,6 +73,10 @@ onMounted(async () => {
       <div :class="component.card">
         <h2 :class="component.cardTitle">版本信息</h2>
         <div class="space-y-3">
+          <div :class="`${layout.flexBetween} py-2 border-b border-gray-200`">
+            <span :class="`font-bold text-sm ${text.muted}`">启动器版本</span>
+            <span :class="`font-black text-base ${component.warningTag}`">{{ versions.startVersion }}</span>
+          </div>
           <div :class="`${layout.flexBetween} py-2 border-b border-gray-200`">
             <span :class="`font-bold text-sm ${text.muted}`">应用构建版本</span>
             <span :class="`font-black text-base ${component.warningTag}`">{{ versions.appVersion }}</span>
