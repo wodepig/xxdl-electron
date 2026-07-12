@@ -194,7 +194,7 @@ const handleCheckPort = async (): Promise<void> => {
         </div>
 
         <div :class="`text-xs font-bold tracking-wide ${text.muted}`">
-          Electron · 2026
+          Electron · 2026 
         </div>
 
         <!-- 端口测试区域 -->

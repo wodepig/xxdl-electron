@@ -67,7 +67,7 @@ AI写的
 
 ## 打包
 1. 创建配置文件
-使用[gen-env-config.html](gen-env-config.html)生成配置文件, 默认构建放到.env中; 如果要区分多个包, 可以放到.env.demo、.env.demo2等文件中.
+使用[gen-env-config.html](gen-env-config.html)生成配置文件, 默认构建放到.env中; 如果要区分多个包, 也是替换放到.env中.
 2. 打包
 现在包名、文件名、应用名、描述、图标等信息都从.env文件读取, 不再需要旧的“打包前替换package.json/electron-builder.yml, 打包后再还原”的脚本流程.
 
@@ -79,16 +79,6 @@ pnpm build:win
 读取.env.demo:
 ```
 pnpm build:win:mode
-```
-
-读取.env.demo2:
-```
-pnpm build:win:demo2
-```
-
-也可以手动指定mode:
-```
-node scripts/build-with-mode.js demo win
 ```
 输出位置: /dist目录
 相关的动态打包配置在electron-builder.config.cjs中. 默认打包为zip压缩包和nsis安装包.
